@@ -47,10 +47,10 @@ function RJSubjectBars({ subjects, rounds }) {
   const S = subjects.length;
   const R = Math.max(1, rounds.length);
   if (!S) return <div className="rc-bars-empty">이번 회차에 응시한 과목이 없습니다.</div>;
-  const barW = R > 4 ? 18 : R > 2 ? 24 : 30;
-  const innerGap = 6, groupGap = 36;
-  const padL = 36, padR = 14, padT = 22, padB = 40;
-  const plotH = 196;
+  const barW = R > 4 ? 16 : R > 2 ? 22 : 28;
+  const innerGap = 6, groupGap = 34;
+  const padL = 34, padR = 14, padT = 18, padB = 34;
+  const plotH = 150;
   const groupW = R * barW + (R - 1) * innerGap;
   const W = padL + padR + S * groupW + (S - 1) * groupGap;
   const H = padT + plotH + padB;
@@ -63,7 +63,7 @@ function RJSubjectBars({ subjects, rounds }) {
         {grid.map((g) => (
           <g key={g}>
             <line x1={padL} y1={yAt(g)} x2={W - padR} y2={yAt(g)} stroke="#EAE3D0" strokeWidth="1" />
-            <text x={padL - 8} y={yAt(g)} dy="0.32em" textAnchor="end" fontSize="10" fontFamily="var(--font-en)" fill="#A79F89">{g}</text>
+            <text x={padL - 8} y={yAt(g)} dy="0.32em" textAnchor="end" fontSize="9.5" fontFamily="var(--font-en)" fill="#A79F89">{g}</text>
           </g>
         ))}
         {subjects.map((sub, gi) => {
@@ -78,11 +78,11 @@ function RJSubjectBars({ subjects, rounds }) {
                 return (
                   <g key={ri}>
                     <rect x={x} y={y} width={barW} height={yAt(0) - y} rx="3" fill={RC_ROUND_COLORS[ri % RC_ROUND_COLORS.length]} />
-                    <text x={x + barW / 2} y={y - 5} textAnchor="middle" fontSize="11" fontWeight="800" fontFamily="var(--font-en)" fill="#001D3D">{Math.round(v)}</text>
+                    <text x={x + barW / 2} y={y - 5} textAnchor="middle" fontSize="10" fontWeight="800" fontFamily="var(--font-en)" fill="#001D3D">{Math.round(v)}</text>
                   </g>
                 );
               })}
-              <text x={gx + groupW / 2} y={H - padB + 22} textAnchor="middle" fontSize="13.5" fontWeight="700" fill="#001D3D" fontFamily="var(--font-kr)">{sub}</text>
+              <text x={gx + groupW / 2} y={H - padB + 20} textAnchor="middle" fontSize="12.5" fontWeight="700" fill="#001D3D" fontFamily="var(--font-kr)">{sub}</text>
             </g>
           );
         })}
@@ -227,18 +227,24 @@ function useReportPrint(store, comments) {
     }, 350);
     return () => clearTimeout(t);
   }, [printJob]);
-  const area = printJob ? (
-    <div className="rc-print-area" aria-hidden="true">
-      {(() => {
-        const round = store.rounds.find((r) => r.id === printJob.roundId);
-        if (!round) return null;
-        return printJob.keys.map((k) => (
-          <StudentReportCard key={k} round={round} store={store} studentKey={k}
-            comment={comments[printJob.roundId + "|" + k]} editable={false} />
-        ));
-      })()}
-    </div>
-  ) : null;
+  // 인쇄 영역을 본문(#root) 밖 portal 로 렌더 → 인쇄 시 빈 페이지/상단 여백 제거
+  const portalEl = useRefR(null);
+  if (!portalEl.current && typeof document !== "undefined") {
+    let el = document.getElementById("rc-print-portal");
+    if (!el) { el = document.createElement("div"); el.id = "rc-print-portal"; el.className = "rc-print-portal"; document.body.appendChild(el); }
+    portalEl.current = el;
+  }
+  const sheets = printJob ? (() => {
+    const round = store.rounds.find((r) => r.id === printJob.roundId);
+    if (!round) return null;
+    return printJob.keys.map((k) => (
+      <StudentReportCard key={k} round={round} store={store} studentKey={k}
+        comment={comments[printJob.roundId + "|" + k]} editable={false} />
+    ));
+  })() : null;
+  const area = portalEl.current
+    ? ReactDOM.createPortal(<div className="rc-print-area" aria-hidden="true">{sheets}</div>, portalEl.current)
+    : null;
   return { print: (roundId, keys) => setPrintJob({ roundId, keys }), area };
 }
 
@@ -427,12 +433,12 @@ function ReportManager() {
               </div>
               <div style={{ maxHeight: 620, overflowY: "auto" }}>
                 <div className="rc-rosterrow" style={{ cursor: "default", color: "var(--ci-muted)", fontSize: 10.5, fontWeight: 800, letterSpacing: ".05em", textTransform: "uppercase", borderTop: 0 }}>
-                  <span>이름 · 소속</span><span className="hide-sm">레벨</span><span className="r" style={{ textAlign: "right" }}>평균</span><span />
+                  <span>이름 · 소속</span><span className="hide-sm">학년/반</span><span className="r" style={{ textAlign: "right" }}>평균</span><span />
                 </div>
                 {filtered.map((s) => (
                   <div key={s.key} className={"rc-rosterrow" + (s.key === selKey ? " sel" : "")} onClick={() => setSelKey(s.key)}>
                     <span><strong style={{ fontWeight: 700 }}>{s.name}</strong> <span style={{ color: "var(--ci-muted)", fontSize: 12 }}>{s.org || "개인"}</span></span>
-                    <span className="hide-sm"><span className="ci-badge neutral" style={{ fontSize: 10.5 }}>{s.level}</span></span>
+                    <span className="hide-sm">{s.level && s.level !== "기타" ? <span className="ci-badge neutral" style={{ fontSize: 10.5 }}>{s.level}</span> : <span style={{ color: "var(--ci-muted)", fontSize: 11 }}>–</span>}</span>
                     <span className="r" style={{ textAlign: "right", fontFamily: "var(--font-en)", fontWeight: 800, color: "var(--ci-navy)" }}>{s.avg != null ? s.avg : "–"}</span>
                     <span style={{ textAlign: "right", color: "var(--ci-muted)" }}><Icon name="chevron" size={14} /></span>
                   </div>
@@ -500,7 +506,7 @@ function ReportSelfView({ userName }) {
         {!auto && (
           <select value={selKey || ""} onChange={(e) => setSelKey(e.target.value)}
             style={{ height: 36, borderRadius: 8, border: "1px solid var(--ci-line)", padding: "0 12px", fontSize: 13, fontFamily: "var(--font-kr)", marginLeft: "auto" }}>
-            {roster.map((s) => <option key={s.key} value={s.key}>{s.name} {s.org ? "(" + s.org + ")" : ""} · {s.level}</option>)}
+            {roster.map((s) => <option key={s.key} value={s.key}>{s.name} {s.org ? "(" + s.org + ")" : ""}{s.level && s.level !== "기타" ? " · " + s.level : ""}</option>)}
           </select>
         )}
       </div>

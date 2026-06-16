@@ -22,28 +22,160 @@ const AB = {
   ink: "var(--acad-ink)",
 };
 
-// ── 공통: 이미지 슬롯(실제 캡처를 끼우는 자리) ─────────────────────
-function ABShot({ id, label, h = 200, ratio, frame = "navy", caption }) {
+// ── 공통: 이미지 자리 ──────────────────────────────────────────────
+//   모든 자리는 assets/about/<id>.webp 를 먼저 찾습니다.
+//    · 파일이 있으면  → 실제 사진을 표시 (가볍고 카페24 배포에 그대로 사용)
+//    · 파일이 없으면  → 드래그해서 끼우는 슬롯으로 자동 전환
+//   사진을 끼운 뒤에는 그 슬롯을 assets/about/<id>.webp 파일로 빼내면
+//   영구적으로 사진이 박힙니다. (pos 로 보이는 위치 미세조정)
+const AB_POS = { "kp1-kor": "50% 8%" }; // 자리별 object-position 보정(선택)
+function ABShot({ id, src, label, h = 200, ratio, frame = "navy", caption, cover, contain }) {
   const border = frame === "navy" ? "rgba(0,29,61,0.14)" : AB.line;
+  const [hasFile, setHasFile] = React.useState(true); // 일단 파일 시도
+  const fill = cover && !ratio; // 부모 칸 높이를 그대로 채움(위아래 정렬용)
+  const fileSrc = src ? ("assets/about/" + src) : ("assets/about/" + id + ".webp");
+  // 빈 슬롯(드롭 자리)
+  const slotStyle = {
+    display: "block", width: "100%",
+    ...(fill ? { height: "100%" } : ratio ? { aspectRatio: ratio } : { height: h + "px" }),
+    border: "1.5px solid " + border,
+    borderRadius: "12px",
+    background: AB.cream2,
+  };
+  // 실제 사진
+  const imgStyle = {
+    display: "block", width: "100%",
+    border: "1.5px solid " + border,
+    borderRadius: "12px",
+    background: AB.cream2,
+    ...(contain
+      ? { aspectRatio: ratio || "4 / 3", objectFit: "contain" }  // 칸 안에 전체가 보이게(안 잘림)
+      : cover
+        ? (fill
+            ? { height: "100%", objectFit: "cover" }
+            : { aspectRatio: ratio, height: "auto", objectFit: "cover" })
+        : { height: "auto" }),                                   // 기본: 원본 비율 그대로
+  };
+  const figureStyle = { margin: 0, display: "flex", flexDirection: "column", gap: 10, ...(fill ? { height: "100%" } : {}) };
   return (
-    <figure style={{ margin: 0, display: "flex", flexDirection: "column", gap: 10 }}>
-      <image-slot
-        id={"ab-" + id}
-        shape="rounded"
-        radius="12"
-        placeholder={label}
-        style={{
-          display: "block", width: "100%",
-          ...(ratio ? { aspectRatio: ratio } : { height: h + "px" }),
-          border: "1.5px solid " + border,
-          borderRadius: "12px",
-          background: AB.cream2,
-        }}
-      ></image-slot>
+    <figure style={figureStyle}>
+      {hasFile ? (
+        <img
+          src={fileSrc}
+          alt={label || caption || ""}
+          loading="lazy"
+          onError={() => setHasFile(false)}
+          style={imgStyle}
+        />
+      ) : (
+        <image-slot
+          id={"ab-" + id}
+          shape="rounded"
+          radius="12"
+          placeholder={label}
+          style={slotStyle}
+        ></image-slot>
+      )}
       {caption && (
         <figcaption style={{ textAlign: "center", fontWeight: 800, fontSize: 14, color: AB.navy, letterSpacing: "-0.02em" }}>{caption}</figcaption>
       )}
     </figure>
+  );
+}
+
+// ── 공통: 자동 슬라이드 + 클릭 확대(라이트박스) ─────────────────────
+function Slideshow({ images, ratio = "4 / 3", interval = 3000, frame = "navy" }) {
+  const border = frame === "navy" ? "rgba(0,29,61,0.14)" : AB.line;
+  const [i, setI] = React.useState(0);
+  const [open, setOpen] = React.useState(false);
+  const [lb, setLb] = React.useState(0);
+  React.useEffect(() => {
+    if (open || images.length < 2) return;
+    const t = setInterval(() => setI((p) => (p + 1) % images.length), interval);
+    return () => clearInterval(t);
+  }, [open, images.length, interval]);
+  return (
+    <div>
+      <div
+        onClick={() => { setLb(i); setOpen(true); }}
+        style={{ position: "relative", aspectRatio: ratio, borderRadius: 14, overflow: "hidden", border: "1.5px solid " + border, background: AB.cream2, cursor: "zoom-in" }}
+      >
+        {images.map((src, idx) => (
+          <img key={src} src={"assets/about/" + src} alt="" loading="lazy"
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: idx === i ? 1 : 0, transition: "opacity 0.7s ease" }} />
+        ))}
+        <span style={{ position: "absolute", top: 12, right: 12, display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(0,29,61,0.62)", color: "#fff", fontSize: 12, fontWeight: 700, padding: "6px 11px", borderRadius: 999, pointerEvents: "none" }}>
+          <Icon name="search" size={13} /> 클릭하면 크게 보기
+        </span>
+        <div style={{ position: "absolute", bottom: 12, left: 0, right: 0, display: "flex", justifyContent: "center", gap: 7 }}>
+          {images.map((_, idx) => (
+            <button key={idx} aria-label={"슬라이드 " + (idx + 1)}
+              onClick={(e) => { e.stopPropagation(); setI(idx); }}
+              style={{ width: idx === i ? 22 : 8, height: 8, borderRadius: 99, border: 0, padding: 0, cursor: "pointer", background: idx === i ? AB.yel : "rgba(255,255,255,0.75)", transition: "all 0.3s ease" }} />
+          ))}
+        </div>
+      </div>
+      {open && <Lightbox images={images} index={lb} setIndex={setLb} onClose={() => setOpen(false)} />}
+    </div>
+  );
+}
+
+function Lightbox({ images, index, setIndex, onClose }) {
+  React.useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowRight") setIndex((p) => (p + 1) % images.length);
+      else if (e.key === "ArrowLeft") setIndex((p) => (p - 1 + images.length) % images.length);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [images.length]);
+  const navBtn = { width: 52, height: 52, borderRadius: "50%", border: 0, cursor: "pointer", background: "rgba(255,255,255,0.14)", color: "#fff", fontSize: 28, fontWeight: 400, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 };
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(8,12,20,0.93)", display: "flex", alignItems: "center", justifyContent: "center", gap: 20, padding: "32px clamp(16px, 4vw, 60px)" }}>
+      <button onClick={onClose} aria-label="닫기" style={{ position: "absolute", top: 22, right: 26, width: 44, height: 44, borderRadius: "50%", border: 0, cursor: "pointer", background: "rgba(255,255,255,0.14)", color: "#fff", fontSize: 22 }}>✕</button>
+      {images.length > 1 && <button onClick={(e) => { e.stopPropagation(); setIndex((p) => (p - 1 + images.length) % images.length); }} aria-label="이전" style={navBtn}>‹</button>}
+      <img src={"assets/about/" + images[index]} alt="" onClick={(e) => e.stopPropagation()}
+        style={{ maxWidth: "84vw", maxHeight: "84vh", objectFit: "contain", borderRadius: 10, boxShadow: "0 30px 80px rgba(0,0,0,0.5)" }} />
+      {images.length > 1 && <button onClick={(e) => { e.stopPropagation(); setIndex((p) => (p + 1) % images.length); }} aria-label="다음" style={navBtn}>›</button>}
+      <div style={{ position: "absolute", bottom: 26, left: 0, right: 0, textAlign: "center", color: "rgba(255,255,255,0.85)", fontFamily: "var(--font-en)", fontWeight: 700, fontSize: 14, letterSpacing: "0.08em" }}>{index + 1} / {images.length}</div>
+    </div>
+  );
+}
+
+// ── 공통: 오프라인 캠프 — 포스터 + 설명(좌우 번갈아) ────────────────
+function CampInfo({ rows }) {
+  return (
+    <div style={{ display: "grid", gap: 9, margin: "16px 0 18px" }}>
+      {rows.map(([k, v]) => (
+        <div key={k} style={{ display: "grid", gridTemplateColumns: "58px 1fr", gap: 12, alignItems: "baseline" }}>
+          <span style={{ background: AB.navy, color: "#fff", fontWeight: 800, fontSize: 12.5, letterSpacing: "0.06em", textAlign: "center", padding: "4px 0", borderRadius: 6, whiteSpace: "nowrap" }}>{k}</span>
+          <span style={{ fontSize: 15, fontWeight: 600, color: AB.ink, lineHeight: 1.5 }}>{v}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+function CampRow({ img, side = "left", badge, title, quote, rows, benefits }) {
+  const poster = (
+    <div style={{ display: "flex", justifyContent: "center" }}>
+      <img src={"assets/about/" + img} alt={title} loading="lazy"
+        style={{ width: "100%", maxWidth: 360, height: "auto", borderRadius: 14, border: "1.5px solid " + AB.line, boxShadow: "0 16px 38px rgba(0,29,61,0.14)" }} />
+    </div>
+  );
+  const text = (
+    <div>
+      {badge && <span style={{ display: "inline-block", background: AB.yel, color: AB.navy, fontWeight: 800, fontSize: 12.5, padding: "6px 12px", borderRadius: 999, marginBottom: 12, whiteSpace: "nowrap" }}>{badge}</span>}
+      <div style={{ fontWeight: 900, fontSize: 24, color: AB.navy, letterSpacing: "-0.035em", lineHeight: 1.3 }}>{title}</div>
+      {quote && <p style={{ margin: "10px 0 0", fontSize: 16, fontWeight: 800, color: AB.navy, letterSpacing: "-0.02em" }}><em style={{ fontStyle: "normal", background: "linear-gradient(180deg, transparent 58%, rgba(255,214,10,0.5) 58%)", padding: "0 3px" }}>{quote}</em></p>}
+      <CampInfo rows={rows} />
+      {benefits && <ABChips items={benefits} />}
+    </div>
+  );
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: side === "left" ? "0.82fr 1.18fr" : "1.18fr 0.82fr", gap: 40, alignItems: "center" }}>
+      {side === "left" ? <>{poster}{text}</> : <>{text}{poster}</>}
+    </div>
   );
 }
 
@@ -151,11 +283,13 @@ function AboutKeyPoints() {
         <div style={{ marginTop: 72 }}>
           <ABDivider n="2" title="쌍방향 상호작용 수업" />
         </div>
-        <div style={{ marginTop: 28, display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 18, alignItems: "stretch" }}>
-          <ABShot id="kp2-board" label="ClassIn 쌍방향 칠판 화면" ratio="16 / 10" />
+        <div style={{ marginTop: 28, display: "grid", gridTemplateColumns: "2fr 1fr", gap: 18, alignItems: "stretch" }}>
+          {/* 왼쪽 2/3 — 1번 사진이 높이를 결정 */}
+          <ABShot id="kp2-board" label="ClassIn 쌍방향 칠판 화면" ratio="16 / 10" cover />
+          {/* 오른쪽 1/3 — 사진 2개 위아래, 합친 높이가 왼쪽과 같아짐 */}
           <div style={{ display: "grid", gridTemplateRows: "1fr 1fr", gap: 18 }}>
-            <ABShot id="kp2-chat1" label="실시간 질문 채팅" ratio="16 / 7" />
-            <ABShot id="kp2-chat2" label="선생님 답변 채팅" ratio="16 / 7" />
+            <ABShot id="kp2-chat1" label="실시간 질문 채팅" cover />
+            <ABShot id="kp2-chat2" label="선생님 답변 채팅" cover />
           </div>
         </div>
         <p style={{ textAlign: "center", marginTop: 24, fontWeight: 800, fontSize: "clamp(18px, 2vw, 23px)", letterSpacing: "-0.03em", color: AB.navy, lineHeight: 1.45 }}>
@@ -199,9 +333,12 @@ function AboutObjections() {
             </ABLead>
           </div>
 
-          {/* 개강·종강 캠프 */}
-          <div style={{ marginTop: 44, display: "grid", gridTemplateColumns: "1.15fr 1fr", gap: 36, alignItems: "center" }}>
-            <ABShot id="q1-camp" label="개강캠프 · 종강캠프 포스터/현장" ratio="16 / 10" caption="개강캠프 & 종강캠프" />
+          {/* 개강·종강 캠프 — 슬라이드(3초 자동) + 클릭 확대 */}
+          <div style={{ marginTop: 44, display: "grid", gridTemplateColumns: "1.05fr 1fr", gap: 40, alignItems: "center" }}>
+            <div>
+              <Slideshow ratio="4 / 5" interval={3000} images={["camp-sumup.webp", "camp-opening.webp", "camp-q3.jpg", "camp-summer.jpg"]} />
+              <div style={{ textAlign: "center", fontWeight: 800, fontSize: 14, color: AB.navy, marginTop: 12 }}>개강캠프 &amp; 종강캠프</div>
+            </div>
             <div>
               <div style={{ fontWeight: 900, fontSize: 21, color: AB.navy, letterSpacing: "-0.03em", lineHeight: 1.4 }}>“똑똑한 공부는 시작과 마무리가 중요하다”</div>
               <p style={{ margin: "14px 0 22px", fontSize: 15.5, lineHeight: 1.75, color: AB.muted, fontWeight: 500 }}>
@@ -211,8 +348,8 @@ function AboutObjections() {
             </div>
           </div>
 
-          {/* 찾아가는 원데이 클래스 */}
-          <div style={{ marginTop: 36, display: "grid", gridTemplateColumns: "1fr 1.15fr", gap: 36, alignItems: "center" }}>
+          {/* 찾아가는 원데이 클래스 — 슬라이드(3초 자동) + 클릭 확대 */}
+          <div style={{ marginTop: 52, display: "grid", gridTemplateColumns: "1fr 1.05fr", gap: 40, alignItems: "center" }}>
             <div>
               <div style={{ fontWeight: 900, fontSize: 21, color: AB.navy, letterSpacing: "-0.03em", lineHeight: 1.4 }}>“강사님이 찾아간다!<br />전국으로 찾아가는 오프라인 클래스”</div>
               <p style={{ margin: "14px 0 22px", fontSize: 15.5, lineHeight: 1.75, color: AB.muted, fontWeight: 500 }}>
@@ -220,7 +357,10 @@ function AboutObjections() {
               </p>
               <ABChips items={["취약점 보완", "개별 학생 피드백"]} />
             </div>
-            <ABShot id="q1-oneday" label="찾아가는 원데이 클래스 현장" ratio="16 / 10" caption="찾아가는 원데이 클래스" />
+            <div>
+              <Slideshow ratio="4 / 3" interval={3000} images={["oneday-class1.jpg", "oneday-class2.jpg", "oneday-group.jpg", "oneday-haeundae.png", "oneday-suncheon.jpg"]} />
+              <div style={{ textAlign: "center", fontWeight: 800, fontSize: 14, color: AB.navy, marginTop: 12 }}>찾아가는 원데이 클래스</div>
+            </div>
           </div>
         </div>
       </section>
@@ -230,17 +370,18 @@ function AboutObjections() {
         <div className="container-wide" style={{ paddingTop: 88, paddingBottom: 80 }}>
           <ABQuestion q={<>중간고사 · 기말고사처럼<br />평가도 볼 수 있나요?</>} />
           <div style={{ marginTop: 40, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 18 }}>
-            <ABShot id="q2-report1" label="리뉴젠 성적통지표" ratio="3 / 4" />
-            <ABShot id="q2-report2" label="과목별 성적 그래프" ratio="3 / 4" />
-            <ABShot id="q2-report3" label="누적 성적표" ratio="3 / 4" />
+            <ABShot src="ev-report.png" label="2025 1분기 성적통지표" ratio="4 / 3" contain caption="성적통지표" />
+            <ABShot src="ev-graph.png" label="과목별 성적 그래프" ratio="4 / 3" contain caption="과목별 성적 그래프" />
+            <ABShot src="ev-proof.png" label="점수로 증명하는 성장" ratio="4 / 3" contain caption="점수로 증명하는 성장" />
           </div>
           <div style={{ marginTop: 40, display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 18 }}>
             <ABStat big="월 1회" small="진행되는 월말평가" />
             <ABStat big="성적표" small="로 확인하는 우리 아이 학습 상태" />
           </div>
-          <div style={{ marginTop: 28, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, alignItems: "stretch" }}>
-            <ABShot id="q2-grade" label="강사 채점 화면 (숙제/제출물)" ratio="16 / 9" />
-            <ABShot id="q2-feedback" label="수업 피드백 (Prepare Script 등)" ratio="16 / 9" />
+          <div style={{ marginTop: 28, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 18 }}>
+            <ABShot src="ev-grading.png" label="강사 직접 숙제 채점" ratio="4 / 3" contain caption="강사 직접 숙제 채점" />
+            <ABShot src="ev-logmath.png" label="수학 수업일지" ratio="4 / 3" contain caption="수학 수업일지" />
+            <ABShot src="ev-logsci.png" label="통합과학 수업일지" ratio="4 / 3" contain caption="통합과학 수업일지" />
           </div>
           <div style={{ marginTop: 28, display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 18 }}>
             <ABStat big="강사님이 직접" small="채점 & 첨삭하는 시스템" tone="solid" />

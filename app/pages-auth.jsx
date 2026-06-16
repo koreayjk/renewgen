@@ -3,25 +3,25 @@
 const { useState: useStateA } = React;
 
 function LoginPage() {
-  const { navigate, login, showToast } = useApp();
+  const { navigate, login, signIn, showToast } = useApp();
   const [email, setEmail] = useStateA("");
   const [password, setPassword] = useStateA("");
   const [busy, setBusy] = useStateA(false);
 
-  const submit = (e) => {
+  const google = async () => {
+    if (!window.SUPABASE_ENABLED) { showToast("구글 로그인은 Supabase 연결 후 작동합니다"); return; }
+    const r = await window.signInWithGoogle();
+    if (!r.ok) showToast(r.error || "구글 로그인을 시작할 수 없습니다");
+  };
+
+  const submit = async (e) => {
     e?.preventDefault();
+    if (!email || !password) { showToast("이메일과 비밀번호를 입력해주세요"); return; }
     setBusy(true);
-    setTimeout(() => {
-      setBusy(false);
-      if (!email || !password) { showToast("이메일과 비밀번호를 입력해주세요"); return; }
-      // Demo: any creds work; tag account if matches
-      if (email === ACCOUNT.email && password === ACCOUNT.password) {
-        login(ACCOUNT.email, ACCOUNT.name, ACCOUNT.initials);
-      } else {
-        login(email, "게스트", "GU");
-      }
-      navigate("/mypage");
-    }, 500);
+    const res = await signIn(email, password);
+    setBusy(false);
+    if (!res.ok) { showToast(res.error === "Invalid login credentials" ? "이메일 또는 비밀번호가 올바르지 않습니다" : (res.error || "로그인에 실패했습니다")); return; }
+    navigate("/mypage");
   };
 
   return (
@@ -45,12 +45,10 @@ function LoginPage() {
             </div>
           </div>
           <div className="card" style={{ background: "transparent", border: "1px solid rgba(245,241,233,0.18)", color: "var(--rj-paper)", padding: 24 }}>
-            <div className="label-cap" style={{ color: "rgba(245,241,233,0.5)" }}>Demo Credentials</div>
-            <div style={{ marginTop: 10, fontFamily: "var(--font-en)", fontSize: 13 }}>
-              <div>email · <span style={{ color: "var(--rj-accent)" }}>{ACCOUNT.email}</span></div>
-              <div>pw · <span style={{ color: "var(--rj-accent)" }}>{ACCOUNT.password}</span></div>
-            </div>
-            <p style={{ marginTop: 12, color: "rgba(245,241,233,0.5)", fontSize: 12, marginBottom: 0 }}>아무 이메일·비밀번호로 로그인해도 마이페이지가 열립니다.</p>
+            <div className="label-cap" style={{ color: "rgba(245,241,233,0.5)" }}>Supabase 연동</div>
+            <p style={{ marginTop: 10, color: "rgba(245,241,233,0.7)", fontSize: 13, marginBottom: 0, lineHeight: 1.6 }}>
+              실제 계정으로 로그인됩니다. 계정이 없으시면 먼저 <a href="#/signup" style={{ color: "var(--rj-accent)" }}>회원가입</a> 해주세요.
+            </p>
           </div>
         </div>
 
@@ -86,11 +84,8 @@ function LoginPage() {
           </div>
 
           <div style={{ display: "grid", gap: 10 }}>
-            <button className="btn btn-lg" style={{ background: "#FEE500", color: "#191600" }} onClick={() => { login("user@kakao.com", "도윤", "도윤"); navigate("/mypage"); }}>
-              <KakaoMark /> 카카오로 시작하기
-            </button>
-            <button className="btn btn-lg" style={{ background: "#03C75A", color: "#fff" }} onClick={() => { login("user@naver.com", "도윤", "도윤"); navigate("/mypage"); }}>
-              <NaverMark /> 네이버로 시작하기
+            <button className="btn btn-lg" style={{ background: "#fff", color: "#1f1f1f", border: "1px solid #dadce0" }} onClick={google}>
+              <GoogleMark /> Google로 시작하기
             </button>
           </div>
 
@@ -109,16 +104,26 @@ const KakaoMark = () => (
 const NaverMark = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M5 4h4l6 8V4h4v16h-4l-6-8v8H5V4Z" /></svg>
 );
+const GoogleMark = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1Z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.99.66-2.26 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23Z"/><path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84Z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84C6.71 7.3 9.14 5.38 12 5.38Z"/></svg>
+);
 
 // ──────────────────────────────────────────────────────────────────
 // Signup
 // ──────────────────────────────────────────────────────────────────
 function SignupPage() {
-  const { navigate, login, showToast } = useApp();
+  const { navigate, login, signUp, showToast } = useApp();
   const [step, setStep] = useStateA(1);
+  const [busy, setBusy] = useStateA(false);
   const [data, setData] = useStateA({ email: "", password: "", name: "", grade: "고2", subject: "math", school: "", agree: { service: false, privacy: false, marketing: false } });
   const update = (k, v) => setData((d) => ({ ...d, [k]: v }));
   const allAgree = data.agree.service && data.agree.privacy;
+
+  const google = async () => {
+    if (!window.SUPABASE_ENABLED) { showToast("구글 로그인은 Supabase 연결 후 작동합니다"); return; }
+    const r = await window.signInWithGoogle();
+    if (!r.ok) showToast(r.error || "구글 로그인을 시작할 수 없습니다");
+  };
 
   const next = () => {
     if (step === 1) {
@@ -130,8 +135,19 @@ function SignupPage() {
     setStep((s) => s + 1);
   };
 
-  const finish = () => {
-    login(data.email, data.name, data.name.slice(-2));
+  const finish = async () => {
+    setBusy(true);
+    const res = await signUp({ email: data.email, password: data.password, name: data.name, grade: data.grade, school: data.school, subject: data.subject });
+    setBusy(false);
+    if (!res.ok) {
+      showToast(res.error && res.error.includes("already") ? "이미 가입된 이메일입니다" : (res.error || "가입에 실패했습니다"));
+      return;
+    }
+    if (res.needsConfirm) {
+      showToast("확인 이메일을 보냈습니다. 메일 인증 후 로그인해주세요");
+      navigate("/login");
+      return;
+    }
     navigate("/mypage");
   };
 
@@ -155,6 +171,12 @@ function SignupPage() {
       {/* Step 1 */}
       {step === 1 && (
         <div style={{ marginTop: 32, display: "grid", gap: 18 }}>
+          <button className="btn btn-lg" style={{ background: "#fff", color: "#1f1f1f", border: "1px solid #dadce0" }} onClick={google}>
+            <GoogleMark /> Google로 간편 가입
+          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, color: "var(--rj-muted)", fontSize: 13 }}>
+            <div className="hairline-soft" style={{ flex: 1 }} /> 또는 이메일로 가입 <div className="hairline-soft" style={{ flex: 1 }} />
+          </div>
           <div className="field"><label>Email · 이메일</label><input className="input input-lg" type="email" value={data.email} onChange={(e) => update("email", e.target.value)} placeholder="you@example.com" /></div>
           <div className="field"><label>Password · 비밀번호 (8자 이상)</label><input className="input input-lg" type="password" value={data.password} onChange={(e) => update("password", e.target.value)} /></div>
 
@@ -225,7 +247,7 @@ function SignupPage() {
 
           <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
             <button className="btn btn-ghost btn-lg" onClick={() => setStep(2)}><Icon name="arrowLeft" size={14} /> 이전</button>
-            <button className="btn btn-primary btn-lg" style={{ flex: 1 }} onClick={finish}>가입 완료 → 마이페이지 <Icon name="arrow" size={14} /></button>
+            <button className="btn btn-primary btn-lg" style={{ flex: 1 }} onClick={finish} disabled={busy}>{busy ? "가입 중…" : <>가입 완료 → 마이페이지 <Icon name="arrow" size={14} /></>}</button>
           </div>
         </div>
       )}

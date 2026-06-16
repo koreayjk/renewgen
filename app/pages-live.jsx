@@ -6,7 +6,7 @@ const { useState: useStateP, useEffect: useEffectP, useRef: useRefP } = React;
 // /player/:id  — VOD viewer
 // ──────────────────────────────────────────────────────────────────
 function PlayerPage({ courseId }) {
-  const { navigate, showToast } = useApp();
+  const { navigate, showToast, user } = useApp();
   const course = findCourse(courseId);
   const ins = course ? findInstructor(course.instructor) : null;
   const [activeLesson, setActiveLesson] = useStateP(2);
@@ -28,6 +28,21 @@ function PlayerPage({ courseId }) {
       <div className="container" style={{ padding: "120px 0", textAlign: "center" }}>
         <h2>강의를 찾을 수 없습니다.</h2>
         <button className="btn btn-primary" onClick={() => navigate("/courses")} style={{ marginTop: 20 }}>강의 목록으로</button>
+      </div>
+    );
+  }
+
+  // VOD는 로그인한 수강생만 시청 가능 (교육청 실사 요건)
+  if (window.SUPABASE_ENABLED && !user) {
+    return (
+      <div className="container" style={{ padding: "120px 0", textAlign: "center", maxWidth: 520, margin: "0 auto" }}>
+        <div style={{ width: 64, height: 64, borderRadius: "50%", background: "var(--rj-ink)", color: "var(--rj-accent)", display: "inline-flex", alignItems: "center", justifyContent: "center", margin: "0 auto" }}><Icon name="lock" size={26} /></div>
+        <h2 style={{ fontFamily: "var(--font-kr-serif)", fontWeight: 500, fontSize: 30, letterSpacing: "-0.03em", margin: "22px 0 8px" }}>수강생 전용 강의입니다</h2>
+        <p style={{ color: "var(--rj-muted)", marginBottom: 26 }}>로그인 후 수강 중인 강의의 다시보기를 시청할 수 있습니다.</p>
+        <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+          <button className="btn btn-primary btn-lg" onClick={() => navigate("/login")}>로그인</button>
+          <button className="btn btn-ghost btn-lg" onClick={() => navigate("/courses/" + course.id)}>강의 소개</button>
+        </div>
       </div>
     );
   }
@@ -455,7 +470,13 @@ function LiveEntry({ course }) {
                 <button
                   className="btn btn-accent btn-lg btn-block"
                   style={{ marginTop: 24, height: 60, fontSize: 16 }}
-                  onClick={() => { setJoining(true); setTimeout(() => setPhase("live"), 900); }}
+                  onClick={async () => {
+                    setJoining(true);
+                    const r = await window.classinEnter({ uid: "", courseId: course.classInCourseId || course.id, classId: course.classInRoomId });
+                    if (r.ok && r.url) { window.location.href = r.url; return; }
+                    // 백엔드 미배포 → 사이트 내 강의실로 진입
+                    setTimeout(() => setPhase("live"), 600);
+                  }}
                   disabled={joining}
                 >
                   {joining ? "라이브 강의실 입장 중…" : <><Icon name="live" size={16} /> 실시간 수업 입장</>}

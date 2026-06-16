@@ -119,7 +119,53 @@ function AppProvider({ children, initialTweaks }) {
     setUser({ email, name, initials });
     showToast(`${name}님, 환영합니다`);
   };
-  const logout = () => { setUser(null); showToast("로그아웃 되었습니다"); };
+  const logout = async () => {
+    const sb = window.getSupabase && window.getSupabase();
+    if (sb) { try { await sb.auth.signOut(); } catch (e) {} }
+    setUser(null);
+    showToast("로그아웃 되었습니다");
+  };
+
+  // ── Supabase 세션 복원 + 상태 동기화 ──
+  useEffect(() => {
+    const sb = window.getSupabase && window.getSupabase();
+    if (!sb) return;
+    sb.auth.getSession().then(({ data }) => {
+      if (data && data.session) setUser(window.mapSbUser(data.session.user));
+    });
+    const { data: sub } = sb.auth.onAuthStateChange((_evt, session) => {
+      setUser(session ? window.mapSbUser(session.user) : null);
+    });
+    return () => { try { sub.subscription.unsubscribe(); } catch (e) {} };
+  }, []);
+
+  // 실제 로그인 (Supabase). 미설정 시 데모 로그인으로 폴백.
+  const signIn = async (email, password) => {
+    const sb = window.getSupabase && window.getSupabase();
+    if (!sb) { login(email, email.split("@")[0] || "게스트", "GU"); return { ok: true, demo: true }; }
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) return { ok: false, error: error.message };
+    const u = window.mapSbUser(data.user);
+    setUser(u);
+    showToast(`${u.name}님, 환영합니다`);
+    return { ok: true };
+  };
+
+  // 실제 회원가입 (Supabase). 프로필 테이블에도 저장.
+  const signUp = async ({ email, password, name, grade, school, subject }) => {
+    const sb = window.getSupabase && window.getSupabase();
+    if (!sb) { login(email, name, (name || "GU").slice(-2)); return { ok: true, demo: true }; }
+    const { data, error } = await sb.auth.signUp({
+      email, password,
+      options: { data: { name, grade, school, subject } },
+    });
+    if (error) return { ok: false, error: error.message };
+    if (data.user) {
+      try { await sb.from("profiles").upsert({ id: data.user.id, email, name, grade, school, subject }); } catch (e) {}
+    }
+    if (data.session) { setUser(window.mapSbUser(data.user)); return { ok: true }; }
+    return { ok: true, needsConfirm: true }; // 이메일 확인이 켜져 있을 때
+  };
 
   const setTweak = (keyOrObj, value) => {
     const next = typeof keyOrObj === "string" ? { ...tweaks, [keyOrObj]: value } : { ...tweaks, ...keyOrObj };
@@ -129,7 +175,7 @@ function AppProvider({ children, initialTweaks }) {
     } catch (e) {}
   };
 
-  const value = { route, navigate, cart, addToCart, removeFromCart, clearCart, user, login, logout, showToast, tweaks, setTweak };
+  const value = { route, navigate, cart, addToCart, removeFromCart, clearCart, user, login, logout, signIn, signUp, showToast, tweaks, setTweak };
 
   return (
     <AppContext.Provider value={value}>

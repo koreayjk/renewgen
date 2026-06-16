@@ -19,9 +19,22 @@ function MyPage() {
   const initialTab = route?.params?.get?.("tab");
   const [tab, setTab] = useStateM(DASH_TABS.some(([k]) => k === initialTab) ? initialTab : "overview");
 
-  // Demo-friendly: auto sign-in so the dashboard is always viewable.
-  useEffectM(() => { if (!user) login(ACCOUNT.email, ACCOUNT.name, ACCOUNT.initials); }, []);
-  if (!user) return null;
+  // Supabase 연동 시: 로그인한 사용자만 접근. 미설정 시: 데모 자동로그인.
+  useEffectM(() => { if (!user && !window.SUPABASE_ENABLED) login(ACCOUNT.email, ACCOUNT.name, ACCOUNT.initials); }, []);
+  if (!user) {
+    if (!window.SUPABASE_ENABLED) return null;
+    return (
+      <div className="page-enter container" style={{ paddingTop: 96, paddingBottom: 120, maxWidth: 520, textAlign: "center" }}>
+        <div style={{ width: 64, height: 64, borderRadius: "50%", background: "var(--ci-navy)", color: "var(--ci-yellow)", display: "inline-flex", alignItems: "center", justifyContent: "center", margin: "0 auto" }}><Icon name="key" size={28} /></div>
+        <h1 style={{ fontFamily: "var(--font-kr-serif)", fontWeight: 500, fontSize: 34, letterSpacing: "-0.03em", margin: "24px 0 8px" }}>로그인이 필요합니다</h1>
+        <p style={{ color: "var(--rj-muted)", fontSize: 15, marginBottom: 28 }}>마이페이지·강의실은 수강생 전용입니다. 로그인 후 이용해주세요.</p>
+        <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+          <button className="btn btn-primary btn-lg" onClick={() => navigate("/login")}>로그인</button>
+          <button className="btn btn-ghost btn-lg" onClick={() => navigate("/signup")}>회원가입</button>
+        </div>
+      </div>
+    );
+  }
 
   const isKnown = user.email === ACCOUNT.email;
   const enrolledIds = isKnown ? ACCOUNT.enrolled : [COURSES[0].id, COURSES[2].id];

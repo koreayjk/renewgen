@@ -51,7 +51,7 @@ function AcadHero() {
   return (
     <section style={{
       position: "relative", display: "flex", alignItems: "center", minHeight: "80vh",
-      backgroundImage: "url(assets/photos/p09.jpg)", backgroundSize: "cover", backgroundPosition: "center 30%",
+      backgroundImage: "url(assets/photos/p02.jpg)", backgroundSize: "cover", backgroundPosition: "center 35%",
     }}>
       <div style={{ position: "absolute", inset: 0, background: "linear-gradient(96deg, rgba(0,16,34,0.94) 0%, rgba(0,16,34,0.80) 40%, rgba(0,16,34,0.46) 78%, rgba(0,16,34,0.30) 100%)" }} />
       <div className="container-wide" style={{ position: "relative", paddingTop: 110, paddingBottom: 110 }}>

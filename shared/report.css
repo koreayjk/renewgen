@@ -24,7 +24,7 @@
 .rc-filechip .lv { color: var(--ci-muted); font-family: var(--font-en); }
 
 /* 학생 리스트 행 */
-.rc-rosterrow { display: grid; grid-template-columns: 1fr 92px 110px 84px auto; gap: 12px; align-items: center;
+.rc-rosterrow { display: grid; grid-template-columns: 1fr 92px 96px auto; gap: 12px; align-items: center;
   padding: 12px 16px; border-top: 1px solid var(--ci-line); font-size: 13.5px; cursor: pointer; }
 .rc-rosterrow:hover { background: var(--ci-bg); }
 .rc-rosterrow.sel { background: #fff; box-shadow: inset 3px 0 0 var(--ci-navy); }
@@ -45,17 +45,18 @@
 
 .rc-sheet-head {
   background: var(--ci-navy); color: #fff;
-  padding: 26px 34px 22px;
+  padding: 22px 34px 18px;
   display: flex; align-items: flex-start; justify-content: space-between; gap: 20px;
 }
 .rc-brand { display: flex; align-items: center; gap: 12px; }
+.rc-brand-tx { display: flex; flex-direction: column; gap: 2px; }
 .rc-brand .mark { width: 40px; height: 40px; border-radius: 9px; background: var(--ci-yellow); color: var(--ci-navy);
   display: inline-flex; align-items: center; justify-content: center; font-weight: 900; font-size: 17px; }
-.rc-brand .nm { font-family: var(--font-kr-serif); font-weight: 600; font-size: 19px; line-height: 1.15; }
-.rc-brand .en { font-family: var(--font-en); font-style: italic; font-weight: 300; font-size: 11px; opacity: .7; letter-spacing: .02em; }
-.rc-head-meta { text-align: right; }
-.rc-head-meta .t { font-size: 12px; font-weight: 800; letter-spacing: .04em; color: var(--ci-yellow); }
-.rc-head-meta .d { font-size: 13px; color: rgba(255,255,255,.75); margin-top: 3px; }
+.rc-brand .nm { font-family: var(--font-kr-serif); font-weight: 600; font-size: 19px; line-height: 1.15; white-space: nowrap; }
+.rc-brand .en { font-family: var(--font-en); font-style: italic; font-weight: 300; font-size: 11px; opacity: .7; letter-spacing: .02em; white-space: nowrap; }
+.rc-head-meta { text-align: right; flex-shrink: 0; }
+.rc-head-meta .t { font-size: 12px; font-weight: 800; letter-spacing: .04em; color: var(--ci-yellow); white-space: nowrap; }
+.rc-head-meta .d { font-size: 13px; color: rgba(255,255,255,.75); margin-top: 3px; white-space: nowrap; }
 
 /* 학생 식별 바 */
 .rc-idbar { padding: 22px 34px; border-bottom: 1px solid var(--ci-line);
@@ -68,6 +69,19 @@
 .rc-tag.navy { background: var(--ci-navy); color: #fff; }
 .rc-tag.solo { background: var(--ci-bg-2); color: var(--ci-muted); }
 
+/* 신원 정보 표 (공동체명·이름·학년반·발급일) */
+.rc-id { padding: 16px 34px; border-bottom: 1px solid var(--ci-line); }
+.rc-id-tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.rc-id-tbl th { background: var(--ci-bg-2); color: var(--ci-muted); font-weight: 800; font-size: 11px;
+  letter-spacing: .02em; text-align: center; padding: 9px 10px; border: 1px solid var(--ci-line); white-space: nowrap; }
+.rc-id-tbl td { text-align: center; padding: 9px 14px; border: 1px solid var(--ci-line); font-weight: 600; color: var(--ci-navy); }
+.rc-id-tbl td.nm { font-family: var(--font-kr-serif); font-weight: 600; font-size: 16px; letter-spacing: -.02em; }
+
+/* 요약 (평균 · 성장) */
+.rc-summary { display: grid; grid-template-columns: repeat(2, 1fr); border-bottom: 1px solid var(--ci-line); }
+.rc-summary .rc-kpi { padding: 16px 24px; border-right: 1px solid var(--ci-line); }
+.rc-summary .rc-kpi:last-child { border-right: 0; }
+
 /* KPI 4칸 */
 .rc-kpis { display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--ci-line); }
 .rc-kpi { padding: 18px 22px; border-right: 1px solid var(--ci-line); }
@@ -79,9 +93,10 @@
 .rc-delta { font-weight: 800; font-size: 12px; }
 .rc-delta.up { color: var(--ci-ok); } .rc-delta.down { color: var(--ci-bad); } .rc-delta.flat { color: var(--ci-muted); }
 
-.rc-body { padding: 22px 34px 8px; }
+.rc-body { padding: 20px 34px 8px; }
+.rc-body-tight { padding-top: 6px; }
 .rc-seclabel { font-size: 11.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--ci-muted);
-  display: flex; align-items: center; gap: 8px; margin: 0 0 12px; }
+  display: flex; align-items: center; gap: 8px; margin: 0 0 12px; white-space: nowrap; }
 .rc-seclabel::after { content: ""; flex: 1; height: 1px; background: var(--ci-line); }
 
 /* 과목 점수 표 */
@@ -102,14 +117,27 @@
 .rc-vs { font-family: var(--font-en); font-weight: 800; font-size: 12.5px; }
 .rc-vs.pos { color: var(--ci-ok); } .rc-vs.neg { color: var(--ci-bad); } .rc-vs.zero { color: var(--ci-muted); }
 
-/* 차트 영역 */
-.rc-charts { display: grid; grid-template-columns: 1fr 1.25fr; gap: 22px; padding: 18px 34px 6px; }
-.rc-chartbox { border: 1px solid var(--ci-line); border-radius: 12px; padding: 16px 18px; background: var(--ci-paper); }
-.rc-chartbox h5 { margin: 0 0 4px; font-weight: 800; font-size: 13.5px; color: var(--ci-navy); letter-spacing: -.02em; }
-.rc-chartbox .cap { font-size: 11px; color: var(--ci-muted); margin: 0 0 10px; }
-.rc-legend { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 10px; font-size: 11px; color: var(--ci-muted); }
-.rc-legend span { display: inline-flex; align-items: center; gap: 5px; }
-.rc-legend i { width: 10px; height: 3px; border-radius: 2px; display: inline-block; }
+/* 회차별 과목 점수 표 (구분 × 과목) */
+.rc-grid { width: 100%; border-collapse: collapse; font-size: 14px; }
+.rc-grid th, .rc-grid td { border: 1px solid var(--ci-line); padding: 10px 8px; text-align: center; }
+.rc-grid thead th { background: var(--ci-navy); color: #fff; font-weight: 800; font-size: 12.5px; letter-spacing: -.01em; }
+.rc-grid thead th .rc-subdot { margin-right: 5px; }
+.rc-grid thead th.corner { background: #0a2647; }
+.rc-grid .rowhead { background: var(--ci-bg-2); font-weight: 800; font-size: 12.5px; color: var(--ci-navy); white-space: nowrap; }
+.rc-grid tbody td { font-family: var(--font-en); font-weight: 700; font-size: 15px; color: var(--ci-navy); }
+.rc-grid .avgcol { background: rgba(0,29,61,0.05); font-weight: 800; }
+.rc-grid thead th.avgcol { background: #0a2647; color: var(--ci-yellow); }
+.rc-grid tr.cur .rowhead { background: #FFF3C4; }
+.rc-grid tr.cur td { background: #FFFAE6; }
+.rc-grid tr.cur td.avgcol { background: #FFEFA8; }
+
+/* 성적 추이 막대그래프 */
+.rc-bars { border: 1px solid var(--ci-line); border-radius: 12px; padding: 16px 16px 12px; background: var(--ci-paper); }
+.rc-bars-wrap { width: 100%; }
+.rc-bars-empty { text-align: center; color: var(--ci-muted); font-size: 13px; padding: 36px 0; }
+.rc-bar-legend { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; margin-top: 12px; font-size: 12px; color: var(--ci-navy); font-weight: 600; }
+.rc-bar-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.rc-bar-legend i { width: 13px; height: 13px; border-radius: 3px; display: inline-block; }
 
 /* 코멘트 */
 .rc-comment { margin: 14px 34px 26px; border: 1px solid var(--ci-line); border-radius: 12px; background: var(--ci-bg);
@@ -138,7 +166,6 @@
 }
 
 @media (max-width: 900px) {
-  .rc-charts { grid-template-columns: 1fr; }
-  .rc-rosterrow { grid-template-columns: 1fr 70px 84px; }
+  .rc-rosterrow { grid-template-columns: 1fr 76px auto; }
   .rc-rosterrow .hide-sm { display: none; }
 }

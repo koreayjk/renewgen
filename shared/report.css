@@ -45,7 +45,7 @@
 
 .rc-sheet-head {
   background: var(--ci-navy); color: #fff;
-  padding: 22px 34px 18px;
+  padding: 18px 30px 15px;
   display: flex; align-items: flex-start; justify-content: space-between; gap: 20px;
 }
 .rc-brand { display: flex; align-items: center; gap: 12px; }
@@ -70,7 +70,7 @@
 .rc-tag.solo { background: var(--ci-bg-2); color: var(--ci-muted); }
 
 /* 신원 정보 표 (공동체명·이름·학년반·발급일) */
-.rc-id { padding: 16px 34px; border-bottom: 1px solid var(--ci-line); }
+.rc-id { padding: 13px 30px; border-bottom: 1px solid var(--ci-line); }
 .rc-id-tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .rc-id-tbl th { background: var(--ci-bg-2); color: var(--ci-muted); font-weight: 800; font-size: 11px;
   letter-spacing: .02em; text-align: center; padding: 9px 10px; border: 1px solid var(--ci-line); white-space: nowrap; }
@@ -79,7 +79,7 @@
 
 /* 요약 (평균 · 성장) */
 .rc-summary { display: grid; grid-template-columns: repeat(2, 1fr); border-bottom: 1px solid var(--ci-line); }
-.rc-summary .rc-kpi { padding: 16px 24px; border-right: 1px solid var(--ci-line); }
+.rc-summary .rc-kpi { padding: 13px 24px; border-right: 1px solid var(--ci-line); }
 .rc-summary .rc-kpi:last-child { border-right: 0; }
 
 /* KPI 4칸 */
@@ -93,8 +93,8 @@
 .rc-delta { font-weight: 800; font-size: 12px; }
 .rc-delta.up { color: var(--ci-ok); } .rc-delta.down { color: var(--ci-bad); } .rc-delta.flat { color: var(--ci-muted); }
 
-.rc-body { padding: 20px 34px 8px; }
-.rc-body-tight { padding-top: 6px; }
+.rc-body { padding: 15px 30px 6px; }
+.rc-body-tight { padding-top: 5px; }
 .rc-seclabel { font-size: 11.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--ci-muted);
   display: flex; align-items: center; gap: 8px; margin: 0 0 12px; white-space: nowrap; }
 .rc-seclabel::after { content: ""; flex: 1; height: 1px; background: var(--ci-line); }
@@ -132,36 +132,40 @@
 .rc-grid tr.cur td.avgcol { background: #FFEFA8; }
 
 /* 성적 추이 막대그래프 */
-.rc-bars { border: 1px solid var(--ci-line); border-radius: 12px; padding: 16px 16px 12px; background: var(--ci-paper); }
+.rc-bars { border: 1px solid var(--ci-line); border-radius: 12px; padding: 14px 14px 10px; background: var(--ci-paper); }
 .rc-bars-wrap { width: 100%; }
+.rc-bars-wrap svg { height: 196px; max-width: 620px; margin: 0 auto; }
 .rc-bars-empty { text-align: center; color: var(--ci-muted); font-size: 13px; padding: 36px 0; }
 .rc-bar-legend { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; margin-top: 12px; font-size: 12px; color: var(--ci-navy); font-weight: 600; }
-.rc-bar-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.rc-bar-legend span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .rc-bar-legend i { width: 13px; height: 13px; border-radius: 3px; display: inline-block; }
 
 /* 코멘트 */
-.rc-comment { margin: 14px 34px 26px; border: 1px solid var(--ci-line); border-radius: 12px; background: var(--ci-bg);
-  padding: 16px 18px; }
+.rc-comment { margin: 12px 30px 18px; border: 1px solid var(--ci-line); border-radius: 12px; background: var(--ci-bg);
+  padding: 13px 16px; }
 .rc-comment .lab { font-size: 11.5px; font-weight: 800; color: var(--ci-muted); letter-spacing: .03em; margin-bottom: 8px;
-  display: flex; align-items: center; gap: 7px; }
+  display: flex; align-items: center; gap: 7px; white-space: nowrap; }
 .rc-comment textarea { width: 100%; border: 0; background: transparent; resize: vertical; min-height: 56px;
   font-family: var(--font-kr); font-size: 14px; line-height: 1.6; color: var(--ci-navy); outline: none; }
 .rc-comment .printed { font-size: 14px; line-height: 1.65; color: var(--ci-navy); white-space: pre-wrap; }
 
-.rc-foot { padding: 12px 34px 22px; display: flex; justify-content: space-between; align-items: center;
+.rc-foot { padding: 10px 30px 16px; display: flex; justify-content: space-between; align-items: center;
   border-top: 1px solid var(--ci-line); font-size: 11px; color: var(--ci-muted); }
 .rc-foot .en { font-family: var(--font-en); letter-spacing: .12em; text-transform: uppercase; }
 
 /* ── 인쇄 영역 (off-screen until print) ───────────────────────────── */
+.rc-print-portal { display: none; }
 .rc-print-area { position: fixed; left: -10000px; top: 0; width: 820px; }
 
 @media print {
-  @page { size: A4 portrait; margin: 12mm; }
-  body * { visibility: hidden !important; }
-  .rc-print-area, .rc-print-area * { visibility: visible !important; }
+  @page { size: A4 portrait; margin: 11mm 10mm; }
+  html, body { background: #fff !important; }
+  #root { display: none !important; }
+  .rc-print-portal { display: block !important; }
   .rc-print-area { position: static !important; left: 0 !important; width: 100% !important; }
-  .rc-print-area .rc-sheet { width: 100%; border: none; border-radius: 0; page-break-after: always; }
-  .rc-print-area .rc-sheet:last-child { page-break-after: auto; }
+  .rc-print-area .rc-sheet { width: 100%; border: none; border-radius: 0; box-shadow: none;
+    page-break-after: always; break-after: page; break-inside: avoid; }
+  .rc-print-area .rc-sheet:last-child { page-break-after: auto; break-after: auto; }
   .no-print { display: none !important; }
 }
 

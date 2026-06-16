@@ -31,79 +31,70 @@ function rcAutoComment(st, delta) {
   return s;
 }
 
-// ── 폴라 좌표 ──────────────────────────────────────────────────────
-function rjPolar(cx, cy, r, deg) {
-  const rad = ((deg - 90) * Math.PI) / 180;
-  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+// ── 회차별 색상 (막대그래프) ───────────────────────────────────────
+const RC_ROUND_COLORS = ["#1F4E8C", "#E08D2F", "#2E9E6B", "#C0392B", "#7A4FA3", "#0C8599", "#B59410", "#5B6770"];
+
+function rcFmtDate(ts) {
+  const d = ts ? new Date(ts) : new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())}.`;
 }
 
-// ── 레이더 차트 (과목 밸런스) ─────────────────────────────────────
-function RJRadar({ subjects, max = 100 }) {
-  const cx = 122, cy = 110, R = 74;
-  const n = subjects.length || 1;
-  const rings = [0.25, 0.5, 0.75, 1];
-  const axisPts = subjects.map((s, i) => rjPolar(cx, cy, R, (i * 360) / n));
-  const valPts = subjects.map((s, i) => rjPolar(cx, cy, R * Math.max(0, Math.min(1, (s.score || 0) / max)), (i * 360) / n));
-  const labelPts = subjects.map((s, i) => rjPolar(cx, cy, R + 20, (i * 360) / n));
-  const poly = valPts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+// ── 과목별 성적 막대그래프 ─────────────────────────────────────────
+//   가로축 = 과목 / 세로축 = 점수. 그룹 내 막대 = 회차(월), 색 = 회차.
+//   회차가 쌓이면 과목마다 막대가 옆으로 늘어선다. 미응시 과목은 제외.
+function RJSubjectBars({ subjects, rounds }) {
+  const S = subjects.length;
+  const R = Math.max(1, rounds.length);
+  if (!S) return <div className="rc-bars-empty">이번 회차에 응시한 과목이 없습니다.</div>;
+  const barW = R > 4 ? 18 : R > 2 ? 24 : 30;
+  const innerGap = 6, groupGap = 36;
+  const padL = 36, padR = 14, padT = 22, padB = 40;
+  const plotH = 196;
+  const groupW = R * barW + (R - 1) * innerGap;
+  const W = padL + padR + S * groupW + (S - 1) * groupGap;
+  const H = padT + plotH + padB;
+  const yAt = (v) => padT + plotH * (1 - v / 100);
+  const grid = [0, 20, 40, 60, 80, 100];
+  const groupX = (gi) => padL + gi * (groupW + groupGap);
   return (
-    <svg viewBox="0 0 244 220" width="100%" style={{ display: "block" }}>
-      {rings.map((rr, ri) => (
-        <polygon key={ri}
-          points={subjects.map((s, i) => { const p = rjPolar(cx, cy, R * rr, (i * 360) / n); return `${p.x},${p.y}`; }).join(" ")}
-          fill="none" stroke="#E4DCC6" strokeWidth="1" />
-      ))}
-      {axisPts.map((p, i) => <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="#E4DCC6" strokeWidth="1" />)}
-      <polygon points={poly} fill="rgba(0,29,61,0.14)" stroke="#001D3D" strokeWidth="2" strokeLinejoin="round" />
-      {valPts.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="3.2" fill={rcSubColor(subjects[i].id)} />)}
-      {labelPts.map((p, i) => (
-        <text key={i} x={p.x} y={p.y} dy="0.32em"
-          textAnchor={Math.abs(p.x - cx) < 6 ? "middle" : p.x > cx ? "start" : "end"}
-          fontSize="11.5" fontWeight="700" fill="#001D3D" fontFamily="var(--font-kr)">
-          {subjects[i].id}
-          <tspan dx="3" fontFamily="var(--font-en)" fill="#5C6678" fontSize="10.5">{subjects[i].score != null ? subjects[i].score : "–"}</tspan>
-        </text>
-      ))}
-    </svg>
-  );
-}
-
-// ── 추이 라인 차트 (회차별 평균 vs 반평균) ─────────────────────────
-function RJTrend({ student, cohort, labels }) {
-  const W = 460, H = 190, padL = 34, padR = 14, padT = 16, padB = 30;
-  const max = 100, min = 0;
-  const plotW = W - padL - padR, plotH = H - padT - padB;
-  const n = student.length;
-  const xAt = (i) => padL + (n <= 1 ? plotW / 2 : (plotW * i) / (n - 1));
-  const yAt = (v) => padT + plotH * (1 - (v - min) / (max - min));
-  const mkPath = (arr) => arr.map((v, i) => `${i ? "L" : "M"}${xAt(i).toFixed(1)} ${yAt(v).toFixed(1)}`).join(" ");
-  const grid = [0, 25, 50, 75, 100];
-  return (
-    <div>
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block" }}>
+    <div className="rc-bars-wrap">
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="xMidYMid meet" style={{ display: "block" }}>
         {grid.map((g) => (
           <g key={g}>
-            <line x1={padL} y1={yAt(g)} x2={W - padR} y2={yAt(g)} stroke="#EFE9D6" strokeWidth="1" />
-            <text x={padL - 8} y={yAt(g)} dy="0.32em" textAnchor="end" fontSize="9.5" fontFamily="var(--font-en)" fill="#A79F89">{g}</text>
+            <line x1={padL} y1={yAt(g)} x2={W - padR} y2={yAt(g)} stroke="#EAE3D0" strokeWidth="1" />
+            <text x={padL - 8} y={yAt(g)} dy="0.32em" textAnchor="end" fontSize="10" fontFamily="var(--font-en)" fill="#A79F89">{g}</text>
           </g>
         ))}
-        {cohort && cohort.some((v) => v != null) && (
-          <path d={mkPath(cohort.map((v) => v == null ? 0 : v))} fill="none" stroke="#C9831A" strokeWidth="2" strokeDasharray="4 4" opacity="0.8" />
-        )}
-        <path d={mkPath(student)} fill="none" stroke="#001D3D" strokeWidth="2.6" strokeLinejoin="round" strokeLinecap="round" />
-        {student.map((v, i) => (
-          <g key={i}>
-            <circle cx={xAt(i)} cy={yAt(v)} r="4.4" fill="#fff" stroke="#001D3D" strokeWidth="2.4" />
-            <text x={xAt(i)} y={yAt(v) - 11} textAnchor="middle" fontSize="11" fontWeight="800" fontFamily="var(--font-en)" fill="#001D3D">{Math.round(v)}</text>
-            <text x={xAt(i)} y={H - 9} textAnchor="middle" fontSize="10.5" fontWeight="700" fill="#5C6678" fontFamily="var(--font-kr)">{labels[i]}</text>
-          </g>
-        ))}
+        {subjects.map((sub, gi) => {
+          const gx = groupX(gi);
+          return (
+            <g key={sub}>
+              {rounds.map((rd, ri) => {
+                const v = rd.scores[sub];
+                if (v == null) return null;
+                const x = gx + ri * (barW + innerGap);
+                const y = yAt(v);
+                return (
+                  <g key={ri}>
+                    <rect x={x} y={y} width={barW} height={yAt(0) - y} rx="3" fill={RC_ROUND_COLORS[ri % RC_ROUND_COLORS.length]} />
+                    <text x={x + barW / 2} y={y - 5} textAnchor="middle" fontSize="11" fontWeight="800" fontFamily="var(--font-en)" fill="#001D3D">{Math.round(v)}</text>
+                  </g>
+                );
+              })}
+              <text x={gx + groupW / 2} y={H - padB + 22} textAnchor="middle" fontSize="13.5" fontWeight="700" fill="#001D3D" fontFamily="var(--font-kr)">{sub}</text>
+            </g>
+          );
+        })}
+        <line x1={padL} y1={yAt(0)} x2={W - padR} y2={yAt(0)} stroke="#001D3D" strokeWidth="1.5" />
       </svg>
-      <div className="rc-legend">
-        <span><i style={{ background: "#001D3D", height: 3 }} /> 내 평균</span>
-        {cohort && cohort.some((v) => v != null) && <span><i style={{ background: "#C9831A" }} /> 반 평균</span>}
-        {n <= 1 && <span style={{ color: "#A79F89" }}>· 회차가 누적되면 추이선이 이어집니다</span>}
-      </div>
+      {R > 1 && (
+        <div className="rc-bar-legend">
+          {rounds.map((rd, ri) => (
+            <span key={ri}><i style={{ background: RC_ROUND_COLORS[ri % RC_ROUND_COLORS.length] }} /> {rd.label}</span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -116,130 +107,94 @@ function StudentReportCard({ round, store, studentKey, comment, onComment, edita
   const orderSubs = RJReport.SUBJECTS.map((s) => s.id).filter((id) => levelSubs.includes(id));
   for (const id of levelSubs) if (!orderSubs.includes(id)) orderSubs.push(id);
 
-  // 추이
-  const trend = useMemoR(() => {
-    const rounds = RJReport.sortedRounds(store).filter((r) => r.students[studentKey]);
-    return rounds.map((r) => ({
-      label: RJReport.shortLabel(r.label),
-      avg: r.students[studentKey].avg || 0,
-      cohort: r.students[studentKey].cohortAvg,
-    }));
-  }, [store, studentKey, round.id]);
+  // 이번 회차에 응시한 과목만 (미응시 제외)
+  const takenSubs = orderSubs.filter((id) => st.subjects[id] && st.subjects[id].score != null);
+
+  // 회차별 추이 (과목별 점수 포함) — 표·막대그래프 공용
+  const trend = useMemoR(() => RJReport.studentTrend(store, studentKey), [store, studentKey, round.id]);
   const prevAvg = trend.length >= 2 ? trend[trend.length - 2].avg : null;
   const delta = prevAvg != null && st.avg != null ? Math.round((st.avg - prevAvg) * 10) / 10 : null;
 
-  const radarSubs = orderSubs.map((id) => ({ id, score: st.subjects[id] ? st.subjects[id].score : null }));
-  const fullMax = orderSubs.reduce((a, id) => a + (st.subjects[id] ? st.subjects[id].max : 100), 0);
-  const totalMax = orderSubs.filter((id) => st.subjects[id] && st.subjects[id].score != null)
-    .reduce((a, id) => a + st.subjects[id].max, 0) || 0;
-
   const cText = (comment != null && comment !== "") ? comment : rcAutoComment(st, delta);
+  const showLevel = st.level && st.level !== "기타";
+  const issueDate = rcFmtDate(round.createdAt);
+  const barRounds = trend.map((t) => ({ label: t.shortLabel + " 월말평가", scores: t.subjects }));
 
   return (
     <div className="rc-sheet">
       <div className="rc-sheet-head">
         <div className="rc-brand">
           <span className="mark">R</span>
-          <span>
+          <div className="rc-brand-tx">
             <div className="nm">리뉴젠 아카데미</div>
-            <div className="en">Re:newgen · 월말평가 성적표</div>
-          </span>
+            <div className="en">Re:newgen Academy</div>
+          </div>
         </div>
         <div className="rc-head-meta">
           <div className="t">{round.label}</div>
-          <div className="d">학년/반 {st.level} · 응시 {st.taken || 0}과목</div>
+          <div className="d">{showLevel ? st.level + " · " : ""}응시 {st.taken || 0}과목</div>
         </div>
       </div>
 
-      <div className="rc-idbar">
-        <span className="av">{rcInitials(st.name)}</span>
-        <div style={{ flex: 1 }}>
-          <div className="rc-name">{st.name}</div>
-          <div className="rc-tags">
-            <span className="rc-tag navy">{st.level}</span>
-            {st.org ? <span className="rc-tag">{st.org}</span> : <span className="rc-tag solo">개인</span>}
-          </div>
-        </div>
+      {/* 신원 정보 */}
+      <div className="rc-id">
+        <table className="rc-id-tbl"><tbody>
+          <tr>
+            <th>공동체명</th><td>{st.org || "개인"}</td>
+            {showLevel && <th>학년/반</th>}
+            {showLevel && <td>{st.level}</td>}
+            <th>이름</th><td className="nm">{st.name}</td>
+            <th>발급일</th><td>{issueDate}</td>
+          </tr>
+        </tbody></table>
       </div>
 
-      <div className="rc-kpis">
+      {/* 요약 (평균 · 성장) */}
+      <div className="rc-summary">
         <div className="rc-kpi">
-          <div className="k">평균 점수</div>
+          <div className="k">이번 회차 평균</div>
           <div className="v">{st.avg != null ? st.avg : "–"}<small>점</small></div>
           <div className="sub">{st.taken || 0}과목 평균 · 100점 만점</div>
-        </div>
-        <div className="rc-kpi">
-          <div className="k">총점</div>
-          <div className="v">{st.total != null ? st.total : "–"}</div>
-          <div className="sub">/ {totalMax}점 만점</div>
-        </div>
-        <div className="rc-kpi">
-          <div className="k">{st.level} 석차</div>
-          <div className="v">{st.rankOverall || "–"}<small>등</small></div>
-          <div className="sub">{st.cohortN || 0}명 중 · 반평균 {st.cohortAvg != null ? st.cohortAvg : "–"}점</div>
         </div>
         <div className="rc-kpi">
           <div className="k">전월 대비</div>
           <div className="v">
             {delta == null ? "–" : <span className={"rc-delta " + (delta > 0 ? "up" : delta < 0 ? "down" : "flat")}>{delta > 0 ? "▲" : delta < 0 ? "▼" : "■"} {Math.abs(delta)}</span>}
           </div>
-          <div className="sub">{prevAvg != null ? `직전 ${prevAvg}점 → 현재 ${st.avg}점` : "첫 회차"}</div>
+          <div className="sub">{prevAvg != null ? `직전 ${prevAvg}점 → 현재 ${st.avg}점` : "첫 회차 응시"}</div>
         </div>
       </div>
 
+      {/* 회차별 과목 점수 표 */}
       <div className="rc-body">
-        <h4 className="rc-seclabel">과목별 성적 · Subject Scores</h4>
-        <table className="rc-tbl">
+        <h4 className="rc-seclabel">회차별 과목 점수 · Scores</h4>
+        <table className="rc-grid">
           <thead>
             <tr>
-              <th>과목</th>
-              <th className="r">점수</th>
-              <th className="c" style={{ width: 116 }}>성취도</th>
-              <th className="r">반평균</th>
-              <th className="r">편차</th>
-              <th className="r">석차</th>
+              <th className="corner">구분</th>
+              {takenSubs.map((id) => (
+                <th key={id}><span className="rc-subdot" style={{ background: rcSubColor(id) }} />{id}</th>
+              ))}
+              <th className="avgcol">평균</th>
             </tr>
           </thead>
           <tbody>
-            {orderSubs.map((id) => {
-              const sd = st.subjects[id];
-              if (!sd || sd.score == null) {
-                return (
-                  <tr key={id} className="absent">
-                    <td><span className="rc-subdot" style={{ background: rcSubColor(id), opacity: .4 }} /><span className="rc-subname">{id}</span></td>
-                    <td className="r">미응시</td><td className="c">—</td><td className="r">—</td><td className="r">—</td><td className="r">—</td>
-                  </tr>
-                );
-              }
-              const vs = Math.round((sd.score - (sd.classAvg || 0)) * 10) / 10;
-              return (
-                <tr key={id}>
-                  <td><span className="rc-subdot" style={{ background: rcSubColor(id) }} /><span className="rc-subname">{id}</span></td>
-                  <td className="r"><span className="rc-score-big">{sd.score}<small>/{sd.max}</small></span></td>
-                  <td className="c"><span className="rc-mini"><i style={{ width: Math.min(100, (sd.score / sd.max) * 100) + "%", background: rcSubColor(id) }} /></span></td>
-                  <td className="r">{sd.classAvg != null ? sd.classAvg : "–"}</td>
-                  <td className="r"><span className={"rc-vs " + (vs > 0 ? "pos" : vs < 0 ? "neg" : "zero")}>{vs > 0 ? "+" : ""}{vs}</span></td>
-                  <td className="r"><span className="rc-rankpill">{sd.rank || "–"}<span style={{ color: "#A79F89", fontWeight: 600 }}>/{sd.classN || "–"}</span></span></td>
-                </tr>
-              );
-            })}
+            {trend.map((t) => (
+              <tr key={t.roundId} className={t.roundId === round.id ? "cur" : ""}>
+                <th className="rowhead">{t.shortLabel} 월말평가</th>
+                {takenSubs.map((id) => <td key={id}>{t.subjects[id] != null ? t.subjects[id] : "–"}</td>)}
+                <td className="avgcol">{t.avg != null ? t.avg : "–"}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
 
-      <div className="rc-charts">
-        <div className="rc-chartbox">
-          <h5>과목 밸런스</h5>
-          <p className="cap">과목별 점수 분포 (100점 만점 기준)</p>
-          <RJRadar subjects={radarSubs} max={100} />
-        </div>
-        <div className="rc-chartbox">
-          <h5>성적 추이</h5>
-          <p className="cap">회차별 평균 점수 변화</p>
-          <RJTrend
-            student={trend.map((t) => t.avg)}
-            cohort={trend.map((t) => (t.cohort != null ? t.cohort : null))}
-            labels={trend.map((t) => t.label)} />
+      {/* 성적 추이 막대그래프 */}
+      <div className="rc-body rc-body-tight">
+        <h4 className="rc-seclabel">성적 추이 · Trend</h4>
+        <div className="rc-bars">
+          <RJSubjectBars subjects={takenSubs} rounds={barRounds} />
         </div>
       </div>
 
@@ -472,14 +427,13 @@ function ReportManager() {
               </div>
               <div style={{ maxHeight: 620, overflowY: "auto" }}>
                 <div className="rc-rosterrow" style={{ cursor: "default", color: "var(--ci-muted)", fontSize: 10.5, fontWeight: 800, letterSpacing: ".05em", textTransform: "uppercase", borderTop: 0 }}>
-                  <span>이름 · 소속</span><span className="hide-sm">레벨</span><span className="r" style={{ textAlign: "right" }}>평균</span><span className="r hide-sm" style={{ textAlign: "right" }}>석차</span><span />
+                  <span>이름 · 소속</span><span className="hide-sm">레벨</span><span className="r" style={{ textAlign: "right" }}>평균</span><span />
                 </div>
                 {filtered.map((s) => (
                   <div key={s.key} className={"rc-rosterrow" + (s.key === selKey ? " sel" : "")} onClick={() => setSelKey(s.key)}>
                     <span><strong style={{ fontWeight: 700 }}>{s.name}</strong> <span style={{ color: "var(--ci-muted)", fontSize: 12 }}>{s.org || "개인"}</span></span>
                     <span className="hide-sm"><span className="ci-badge neutral" style={{ fontSize: 10.5 }}>{s.level}</span></span>
                     <span className="r" style={{ textAlign: "right", fontFamily: "var(--font-en)", fontWeight: 800, color: "var(--ci-navy)" }}>{s.avg != null ? s.avg : "–"}</span>
-                    <span className="r hide-sm" style={{ textAlign: "right", fontFamily: "var(--font-en)", fontSize: 12, color: "var(--ci-muted)" }}>{s.rankOverall || "–"}/{s.cohortN || "–"}</span>
                     <span style={{ textAlign: "right", color: "var(--ci-muted)" }}><Icon name="chevron" size={14} /></span>
                   </div>
                 ))}
@@ -557,4 +511,4 @@ function ReportSelfView({ userName }) {
   );
 }
 
-Object.assign(window, { ReportManager, ReportSelfView, StudentReportCard, RJRadar, RJTrend });
+Object.assign(window, { ReportManager, ReportSelfView, StudentReportCard, RJSubjectBars });

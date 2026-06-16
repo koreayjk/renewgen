@@ -6,13 +6,15 @@ const { useState: useStA } = React;
 
 const ADMIN_TABS = [
   ["status",  "연동 상태",      "Connection"],
+  ["reports", "성적표",         "Report Cards"],
   ["users",   "계정 관리",      "User"],
   ["classes", "코스 · 수업",    "Classroom"],
   ["subs",    "데이터 구독",    "Data Subscription"],
 ];
 
 function AdminPage() {
-  const { navigate } = useApp();
+  const { navigate, user } = useApp();
+  const isAdmin = !!(window.isAdmin && window.isAdmin(user));
   const [tab, setTab] = useStA("status");
   const [roleFilter, setRoleFilter] = useStA("all");
 
@@ -78,7 +80,7 @@ function AdminPage() {
                   {[
                     ["School", CLASSIN.school],
                     ["SID", CLASSIN.sid],
-                    ["Secret Key", CLASSIN.secretMasked],
+                    ...(isAdmin ? [["Secret Key", CLASSIN.secretMasked]] : []),
                     ["요금제", CLASSIN.plan],
                     ["API Base", CLASSIN.apiBase],
                     ["테스트 API 승인", "완료 (본사)"],
@@ -89,6 +91,9 @@ function AdminPage() {
                     </div>
                   ))}
                 </div>
+                {!isAdmin && (
+                  <p style={{ marginTop: 12, fontSize: 12.5, color: "var(--ci-muted)" }}>⚠️ Secret Key 등 민감 정보는 관리자(admin)에게만 표시됩니다.</p>
+                )}
                 <a href={CLASSIN.docs} target="_blank" rel="noreferrer" className="ci-act" style={{ marginTop: 16, display: "inline-flex", textDecoration: "none" }}><Icon name="book" size={13} /> API 문서 (docs.eeo.cn)</a>
               </div>
 
@@ -109,48 +114,20 @@ function AdminPage() {
           </div>
         )}
 
-        {/* ── User management ── */}
+        {/* ── Report cards (월말평가 성적표) ── */}
+        {tab === "reports" && (
+          <div>
+            <CiHead title="월말평가 성적표" api="Report Cards · AnswerSheetScore"
+              sub="클래스인 OMR 답안카드 성적을 자동으로 불러오거나, 성적 CSV를 업로드해 학생별로 분류합니다 · 회차가 누적되면 추이 그래프가 생성됩니다" />
+            <ReportManager />
+          </div>
+        )}
+
+        {/* ── 학생 · 계정 관리 ── */}
         {tab === "users" && (
           <div>
-            <CiHead title="계정 관리" api="User"
-              sub="ClassIn 계정 등록·수정·정지·재시작 · 모든 계정은 휴대폰 번호로 등록됩니다"
-              action={<div style={{ display: "flex", gap: 8 }}>
-                <button className="ci-act"><Icon name="upload" size={13} /> 일괄 등록</button>
-                <button className="ci-act navy"><Icon name="plus" size={13} /> 계정 추가</button>
-              </div>} />
-            <div className="ci-subtabs" style={{ marginBottom: 14 }}>
-              {[["all", "전체", ADMIN_ACCOUNTS.length], ["teacher", "강사", teachers.length], ["student", "학생", students.length]].map(([k, l, n]) => (
-                <button key={k} className={"ci-subtab" + (roleFilter === k ? " active" : "")} onClick={() => setRoleFilter(k)}>{l}<span className="badge">{n}</span></button>
-              ))}
-            </div>
-            <div className="ci-card" style={{ overflow: "hidden" }}>
-              <div style={{ overflowX: "auto" }}>
-                <table className="ci-table">
-                  <thead><tr><th>UID</th><th>이름</th><th>역할</th><th>등록 휴대폰</th><th>라벨</th><th>수업</th><th>상태</th><th style={{ textAlign: "right" }}>작업</th></tr></thead>
-                  <tbody>
-                    {accounts.map((a) => (
-                      <tr key={a.uid}>
-                        <td className="ci-uid">{a.uid}</td>
-                        <td><span className="ci-nameav"><span className="av" style={a.role === "teacher" ? { background: "var(--ci-navy-2)" } : {}}>{a.name.slice(-2)}</span>{a.name}</span></td>
-                        <td><span className={"ci-badge " + (a.role === "teacher" ? "navy" : "neutral")}>{a.role === "teacher" ? "강사" : "학생"}</span></td>
-                        <td className="ci-mono" style={{ color: "var(--ci-muted)" }}>{a.mobile}</td>
-                        <td>{a.label}</td>
-                        <td className="ci-mono">{a.classes}</td>
-                        <td>{statusBadge(a.status)}</td>
-                        <td>
-                          <span style={{ display: "flex", gap: 5, justifyContent: "flex-end" }}>
-                            <button className="ci-act sm"><Icon name="edit" size={11} /> 수정</button>
-                            {a.status === "stopped"
-                              ? <button className="ci-act sm navy"><Icon name="refresh" size={11} /> 재시작</button>
-                              : <button className="ci-act sm"><Icon name="lock" size={11} /> 정지</button>}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            {isAdmin && <RoleManager me={user} />}
+            <StudentManager isAdmin={isAdmin} onOpenReports={() => setTab("reports")} />
           </div>
         )}
 
@@ -231,3 +208,378 @@ function AdminPage() {
 }
 
 window.AdminPage = AdminPage;
+
+// ── 권한 없는 사용자가 /admin 에 접근했을 때 ───────────────────────
+function AdminDenied({ user }) {
+  const { navigate } = useApp();
+  return (
+    <div className="page-enter" style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 24px" }}>
+      <div style={{ maxWidth: 460, textAlign: "center" }}>
+        <span style={{ width: 64, height: 64, borderRadius: "50%", background: "var(--ci-bg, #F4F1EA)", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 20 }}>
+          <Icon name="lock" size={26} />
+        </span>
+        <h1 style={{ fontFamily: "var(--font-kr-serif)", fontWeight: 600, fontSize: 30, letterSpacing: "-0.03em", margin: 0 }}>관리자 전용 페이지입니다</h1>
+        <p style={{ color: "var(--rj-muted, #6b6b6b)", marginTop: 12, lineHeight: 1.6 }}>
+          {user
+            ? "이 계정은 관리자 권한이 없습니다. 접근이 필요하면 관리자에게 권한 부여를 요청하세요."
+            : "계속하려면 관리자 계정으로 로그인해주세요."}
+        </p>
+        <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 24 }}>
+          <button className="btn btn-ghost btn-lg" onClick={() => navigate("/")}>홈으로</button>
+          {!user && <button className="btn btn-primary btn-lg" onClick={() => navigate("/login")}>로그인</button>}
+        </div>
+      </div>
+    </div>
+  );
+}
+window.AdminDenied = AdminDenied;
+
+// ── 권한 관리 (이메일 기준 등업/강등) — admin 전용 ────────────────
+function RoleManager({ me }) {
+  const { showToast } = useApp();
+  const [email, setEmail] = useStA("");
+  const [role, setRole] = useStA("teacher");
+  const [grants, setGrants] = useStA(() => (window.listRoleGrants ? window.listRoleGrants() : []));
+  const refresh = () => setGrants(window.listRoleGrants ? window.listRoleGrants() : []);
+
+  const roleKo = (r) => (r === "admin" ? "관리자" : r === "teacher" ? "강사" : "학생");
+  const grant = () => {
+    const e = email.trim().toLowerCase();
+    if (!e || !/.+@.+\..+/.test(e)) { showToast("올바른 이메일을 입력하세요"); return; }
+    window.setUserRole(e, role); refresh(); setEmail("");
+    showToast(`${e} → ${roleKo(role)} 권한 부여`);
+  };
+  const revoke = (e) => { window.setUserRole(e, "student"); refresh(); showToast(`${e} 권한 해제 (학생으로)`); };
+
+  return (
+    <div className="ci-card ci-card-pad" style={{ marginBottom: 18 }}>
+      <CiHead title="권한 관리" api="Roles"
+        sub="이메일 기준으로 강사·관리자 권한을 부여합니다 · 가입 이메일과 같아야 적용됩니다" />
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 14 }}>
+        <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="이메일 (예: teacher@renewjen.kr)" inputMode="email"
+          style={{ flex: "1 1 240px", height: 40, borderRadius: 8, border: "1px solid var(--ci-line)", padding: "0 12px", fontSize: 14, fontFamily: "var(--font-en)" }} />
+        <select value={role} onChange={(e) => setRole(e.target.value)}
+          style={{ height: 40, borderRadius: 8, border: "1px solid var(--ci-line)", padding: "0 12px", fontSize: 14, fontWeight: 700 }}>
+          <option value="teacher">강사</option>
+          <option value="admin">관리자</option>
+        </select>
+        <button className="ci-act navy" style={{ height: 40 }} onClick={grant}><Icon name="check" size={13} /> 권한 부여</button>
+      </div>
+      <div className="ci-card" style={{ overflow: "hidden" }}>
+        <table className="ci-table">
+          <thead><tr><th>이메일</th><th>권한</th><th style={{ textAlign: "right" }}>작업</th></tr></thead>
+          <tbody>
+            {grants.length === 0 && <tr><td colSpan={3} style={{ color: "var(--ci-muted)", padding: "18px" }}>부여된 권한이 없습니다</td></tr>}
+            {grants.map((g) => (
+              <tr key={g.email}>
+                <td className="ci-mono">{g.email}{me && me.email && me.email.toLowerCase() === g.email && <span className="ci-badge neutral" style={{ marginLeft: 8 }}>나</span>}</td>
+                <td><span className={"ci-badge " + (g.role === "admin" ? "bad" : "navy")}>{roleKo(g.role)}</span></td>
+                <td style={{ textAlign: "right" }}>
+                  {g.fixed
+                    ? <span style={{ fontSize: 12, color: "var(--ci-muted)" }}>고정 관리자</span>
+                    : <button className="ci-act sm" onClick={() => revoke(g.email)}><Icon name="close" size={11} /> 해제</button>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+window.RoleManager = RoleManager;
+
+// ════════════════════════════════════════════════════════════════════
+//  학생 관리 (Student Management) — 어드민 핵심
+//  · 명부 검색/필터 · 상태(활성·정지·승인) 관리 · 학생 상세 · 수강 강의 배정
+//  · 성적 연동(월말평가) · 수강권 · 관리 메모 · 학생 추가(ClassIn 계정 발급)
+//  변경값은 localStorage(rj-admin-students)에 저장 — 실서버는 Supabase로 이관.
+// ════════════════════════════════════════════════════════════════════
+const RJ_STU_KEY = "rj-admin-students";
+function stuLoadOv() { try { return JSON.parse(localStorage.getItem(RJ_STU_KEY) || "{}") || {}; } catch (e) { return {}; } }
+function stuSaveOv(o) { try { localStorage.setItem(RJ_STU_KEY, JSON.stringify(o)); } catch (e) {} }
+function stuList() {
+  const ov = stuLoadOv();
+  const base = (typeof ADMIN_ACCOUNTS !== "undefined" ? ADMIN_ACCOUNTS : []).map((a) => ({ ...a }));
+  const ids = new Set(base.map((a) => a.uid));
+  const merged = base.map((a) => ({ ...a, ...(ov[a.uid] || {}) }));
+  for (const uid in ov) if (!ids.has(uid)) merged.push({ uid, role: "student", status: "active", classes: 0, ...ov[uid] });
+  return merged;
+}
+function stuPatch(uid, patch) { const ov = stuLoadOv(); ov[uid] = { ...(ov[uid] || {}), ...patch }; stuSaveOv(ov); }
+function stuAdd(s) {
+  const ov = stuLoadOv();
+  const uid = s.uid || ("RJ" + String(Date.now()).slice(-8));
+  ov[uid] = { added: true, role: "student", status: "active", classes: 0, ...s };
+  stuSaveOv(ov);
+  return uid;
+}
+// 월말평가 성적 연동 — 이름으로 회차별 평균 추이
+function stuScoreTrend(name) {
+  const R = window.RJReport; if (!R || !name) return null;
+  try {
+    const rounds = R.sortedRounds(R.loadStore());
+    const pts = [];
+    for (const r of rounds) {
+      for (const key in r.students) {
+        if (r.students[key].name === name) { pts.push({ label: R.shortLabel(r.label), avg: r.students[key].avg, rank: r.students[key].rankOverall, n: r.students[key].cohortN }); break; }
+      }
+    }
+    return pts.length ? pts : null;
+  } catch (e) { return null; }
+}
+
+function StuStatusBadge({ s }) {
+  if (s === "active") return <span className="ci-badge ok"><Icon name="check" size={11} /> 활성</span>;
+  if (s === "stopped") return <span className="ci-badge bad"><Icon name="lock" size={11} /> 정지</span>;
+  return <span className="ci-badge warn"><Icon name="clock" size={11} /> 승인대기</span>;
+}
+
+function StudentManager({ isAdmin, onOpenReports }) {
+  const { showToast } = useApp();
+  const [tick, setTick] = useStA(0);
+  const refresh = () => setTick((t) => t + 1);
+  const all = React.useMemo(() => stuList(), [tick]);
+  const [q, setQ] = useStA("");
+  const [roleF, setRoleF] = useStA("student");
+  const [statusF, setStatusF] = useStA("all");
+  const [selId, setSelId] = useStA(null);
+  const [adding, setAdding] = useStA(false);
+
+  const c = {
+    student: all.filter((a) => a.role === "student").length,
+    teacher: all.filter((a) => a.role === "teacher").length,
+    active: all.filter((a) => a.status === "active").length,
+    pending: all.filter((a) => a.status === "pending").length,
+    stopped: all.filter((a) => a.status === "stopped").length,
+  };
+  const rows = all
+    .filter((a) => roleF === "all" || a.role === roleF)
+    .filter((a) => statusF === "all" || a.status === statusF)
+    .filter((a) => {
+      if (!q) return true; const s = q.toLowerCase();
+      return a.name.includes(q) || (a.label || "").includes(q) || (a.email || "").toLowerCase().includes(s) || (a.mobile || "").includes(q) || String(a.uid).includes(q);
+    });
+  const sel = all.find((a) => a.uid === selId) || null;
+
+  const setStatus = (uid, status, label) => { stuPatch(uid, { status }); refresh(); showToast(label); };
+
+  return (
+    <div>
+      <CiHead title="학생 관리" api="Student Management"
+        sub="명부·검색 · 상태(활성·정지·승인) · 수강 강의 배정 · 성적 연동 · 관리 메모 · 신규 등록"
+        action={<button className="ci-act navy" onClick={() => setAdding(true)}><Icon name="plus" size={13} /> 학생 추가</button>} />
+
+      {/* KPI */}
+      <div className="ci-stat-strip" style={{ marginBottom: 18 }}>
+        <div className="ci-kpi accent"><div className="lab"><span className="ico"><Icon name="users" size={16} /></span> 학생</div><div className="num">{c.student}</div><div className="sub">강사 {c.teacher}명</div></div>
+        <div className="ci-kpi"><div className="lab"><span className="ico"><Icon name="check" size={16} /></span> 활성</div><div className="num">{c.active}</div><div className="sub">수강 중</div></div>
+        <div className="ci-kpi"><div className="lab"><span className="ico"><Icon name="clock" size={16} /></span> 승인대기</div><div className="num">{c.pending}</div><div className="sub">신규 가입</div></div>
+        <div className="ci-kpi"><div className="lab"><span className="ico"><Icon name="lock" size={16} /></span> 정지</div><div className="num">{c.stopped}</div><div className="sub">이용 중지</div></div>
+      </div>
+
+      {/* 툴바 */}
+      <div className="ci-toolbar">
+        <label className="ci-search"><Icon name="search" size={15} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="이름·반·이메일·휴대폰·UID 검색" />
+        </label>
+        <select className="ci-select" value={roleF} onChange={(e) => setRoleF(e.target.value)}>
+          <option value="student">학생</option>
+          <option value="teacher">강사</option>
+          <option value="all">전체</option>
+        </select>
+        <select className="ci-select" value={statusF} onChange={(e) => setStatusF(e.target.value)}>
+          <option value="all">모든 상태</option>
+          <option value="active">활성</option>
+          <option value="pending">승인대기</option>
+          <option value="stopped">정지</option>
+        </select>
+      </div>
+
+      <div className="ci-card" style={{ overflow: "hidden" }}>
+        <div style={{ overflowX: "auto" }}>
+          <table className="ci-table">
+            <thead><tr><th>이름</th><th>역할</th><th>학년·반</th><th>연락처</th><th>ClassIn UID</th><th>수강</th><th>최근 평균</th><th>상태</th><th style={{ textAlign: "right" }}>작업</th></tr></thead>
+            <tbody>
+              {rows.length === 0 && <tr><td colSpan={9} style={{ padding: 28, textAlign: "center", color: "var(--ci-muted)" }}>조건에 맞는 학생이 없습니다</td></tr>}
+              {rows.map((a) => {
+                const trend = a.role === "student" ? stuScoreTrend(a.name) : null;
+                const avg = trend && trend.length ? trend[trend.length - 1].avg : null;
+                return (
+                  <tr key={a.uid} className={"ci-row-clickable" + (selId === a.uid ? " active" : "")} onClick={() => setSelId(a.uid)}>
+                    <td><span className="ci-nameav"><span className="av" style={a.role === "teacher" ? { background: "var(--ci-navy-2)" } : {}}>{a.name.slice(-2)}</span>{a.name}</span></td>
+                    <td><span className={"ci-badge " + (a.role === "teacher" ? "navy" : "neutral")}>{a.role === "teacher" ? "강사" : "학생"}</span></td>
+                    <td>{a.label || "—"}</td>
+                    <td className="ci-mono" style={{ color: "var(--ci-muted)" }}>{a.email || a.mobile || "—"}</td>
+                    <td className="ci-uid">{a.classinUid || a.uid}</td>
+                    <td className="ci-mono">{(a.courses && a.courses.length) || a.classes || 0}</td>
+                    <td className="ci-mono" style={{ fontWeight: 800, color: avg != null ? "var(--ci-navy)" : "var(--ci-muted)" }}>{avg != null ? avg : "—"}</td>
+                    <td><StuStatusBadge s={a.status} /></td>
+                    <td onClick={(e) => e.stopPropagation()}>
+                      <span style={{ display: "flex", gap: 5, justifyContent: "flex-end" }}>
+                        {a.status === "pending" && <button className="ci-act sm navy" onClick={() => setStatus(a.uid, "active", `${a.name} 승인 완료`)}><Icon name="check" size={11} /> 승인</button>}
+                        {a.status === "stopped"
+                          ? <button className="ci-act sm navy" onClick={() => setStatus(a.uid, "active", `${a.name} 재시작`)}><Icon name="refresh" size={11} /> 재시작</button>
+                          : <button className="ci-act sm danger" onClick={() => setStatus(a.uid, "stopped", `${a.name} 정지`)}><Icon name="lock" size={11} /> 정지</button>}
+                        <button className="ci-act sm" onClick={() => setSelId(a.uid)}><Icon name="arrow" size={11} /> 상세</button>
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {sel && <StudentDrawer student={sel} onClose={() => setSelId(null)} onChange={refresh} onOpenReports={onOpenReports} showToast={showToast} />}
+      {adding && <AddStudentModal onClose={() => setAdding(false)} onAdded={(uid) => { setAdding(false); refresh(); setSelId(uid); }} showToast={showToast} />}
+    </div>
+  );
+}
+window.StudentManager = StudentManager;
+
+// ── 학생 상세 드로어 ────────────────────────────────────────────────
+function StudentDrawer({ student, onClose, onChange, onOpenReports, showToast }) {
+  const a = student;
+  const [form, setForm] = useStA({ name: a.name || "", email: a.email || "", mobile: a.mobile || "", label: a.label || "", memo: a.memo || "" });
+  const [addCourse, setAddCourse] = useStA("");
+  const courses = a.courses || [];
+  const allCourses = typeof COURSES !== "undefined" ? COURSES : [];
+  const trend = a.role === "student" ? stuScoreTrend(a.name) : null;
+  const maxAvg = trend ? Math.max(100, ...trend.map((p) => p.avg || 0)) : 100;
+
+  const save = (patch) => { stuPatch(a.uid, patch); onChange(); };
+  const blurSave = (k) => { if (form[k] !== (a[k] || "")) save({ [k]: form[k] }); };
+  const addC = (cid) => { if (!cid || courses.includes(cid)) return; save({ courses: [...courses, cid] }); setAddCourse(""); };
+  const rmC = (cid) => save({ courses: courses.filter((x) => x !== cid) });
+  const setPlan = (plan) => { save({ plan }); showToast(plan === "subscription" ? "프리패스(구독) 적용" : plan === "none" ? "수강권 해제" : "수강권 변경"); };
+
+  return (
+    <div className="ci-drawer-overlay" onClick={onClose}>
+      <div className="ci-drawer" onClick={(e) => e.stopPropagation()}>
+        <div className="ci-drawer-head">
+          <span className="av">{(form.name || "?").slice(-2)}</span>
+          <div>
+            <div style={{ fontWeight: 900, fontSize: 19 }}>{form.name || "이름 미상"}</div>
+            <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.7)" }}>{a.role === "teacher" ? "강사" : "학생"} · {form.label || "반 미배정"} · UID {a.classinUid || a.uid}</div>
+          </div>
+          <button className="ci-x" onClick={onClose}><Icon name="close" size={16} /></button>
+        </div>
+        <div className="ci-drawer-body">
+          {/* 상태 관리 */}
+          <div className="ci-sec">
+            <h5>상태 관리 <StuStatusBadge s={a.status} /></h5>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {a.status !== "active" && <button className="ci-act navy" onClick={() => save({ status: "active" })}><Icon name="check" size={13} /> {a.status === "pending" ? "가입 승인" : "활성화"}</button>}
+              {a.status !== "stopped" && <button className="ci-act danger" onClick={() => save({ status: "stopped" })}><Icon name="lock" size={13} /> 이용 정지</button>}
+              {a.status === "stopped" && <span style={{ fontSize: 12.5, color: "var(--ci-muted)", alignSelf: "center" }}>정지된 계정은 로그인·강의실 입장이 막힙니다</span>}
+            </div>
+          </div>
+
+          {/* 기본 정보 (편집) */}
+          <div className="ci-sec">
+            <h5>기본 정보</h5>
+            <div className="ci-field"><label>이름</label><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} onBlur={() => blurSave("name")} /></div>
+            <div className="ci-field"><label>이메일 (ClassIn 계정 · 메인 식별)</label><input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} onBlur={() => blurSave("email")} placeholder="student@example.com" /></div>
+            <div className="ci-field"><label>휴대폰 (선택)</label><input value={form.mobile} onChange={(e) => setForm({ ...form, mobile: e.target.value })} onBlur={() => blurSave("mobile")} placeholder="010-0000-0000" /></div>
+            <div className="ci-field"><label>학년 · 반</label><input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} onBlur={() => blurSave("label")} placeholder="예: 고2 / 중A" /></div>
+            <div className="ci-kv"><span className="k">ClassIn UID</span><span className="v" style={{ fontFamily: "var(--font-en)" }}>{a.classinUid || a.uid}{a.added && <span className="ci-badge neutral" style={{ marginLeft: 6 }}>가입 시 발급</span>}</span></div>
+          </div>
+
+          {/* 수강 강의 */}
+          <div className="ci-sec">
+            <h5>수강 강의 <span style={{ color: "var(--ci-muted)", fontWeight: 700 }}>{courses.length}개</span></h5>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: courses.length ? 12 : 0 }}>
+              {courses.map((cid) => {
+                const co = allCourses.find((x) => x.id === cid);
+                return <span key={cid} className="ci-chip">{co ? co.title : cid}<button onClick={() => rmC(cid)}><Icon name="close" size={11} /></button></span>;
+              })}
+              {courses.length === 0 && <span style={{ fontSize: 12.5, color: "var(--ci-muted)" }}>배정된 강의가 없습니다</span>}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <select className="ci-select" style={{ flex: 1 }} value={addCourse} onChange={(e) => setAddCourse(e.target.value)}>
+                <option value="">강의 선택…</option>
+                {allCourses.filter((co) => !courses.includes(co.id)).map((co) => <option key={co.id} value={co.id}>{co.title}</option>)}
+              </select>
+              <button className="ci-act navy" onClick={() => addC(addCourse)}><Icon name="plus" size={13} /> 배정</button>
+            </div>
+          </div>
+
+          {/* 수강권 */}
+          <div className="ci-sec">
+            <h5>수강권 · 결제</h5>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {[["subscription", "프리패스(구독)"], ["single", "낱개 수강권"], ["none", "없음"]].map(([k, l]) => (
+                <button key={k} className={"ci-act" + ((a.plan || "none") === k ? " navy" : "")} onClick={() => setPlan(k)}>{l}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* 성적 (월말평가 연동) */}
+          {a.role === "student" && (
+            <div className="ci-sec">
+              <h5>월말평가 성적 추이 {trend && <button className="ci-act sm" onClick={() => { onClose(); onOpenReports && onOpenReports(); }}><Icon name="arrow" size={11} /> 성적표</button>}</h5>
+              {trend ? (
+                <div className="ci-trend">
+                  {trend.map((p, i) => (
+                    <div key={i} className="bar" style={{ height: Math.max(6, ((p.avg || 0) / maxAvg) * 58) + "px" }}>
+                      <span>{p.avg != null ? p.avg : "–"}</span><em>{p.label}</em>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p style={{ margin: 0, fontSize: 12.5, color: "var(--ci-muted)" }}>연동된 성적이 없습니다. 성적표 탭에서 클래스인 OMR 성적을 불러오면 이름이 일치하는 학생에게 자동 연결됩니다.</p>
+              )}
+            </div>
+          )}
+
+          {/* 관리 메모 */}
+          <div className="ci-sec">
+            <h5>관리 메모</h5>
+            <div className="ci-field"><textarea value={form.memo} onChange={(e) => setForm({ ...form, memo: e.target.value })} onBlur={() => blurSave("memo")} placeholder="상담 내역, 특이사항 등 (관리자만 보임)" /></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+window.StudentDrawer = StudentDrawer;
+
+// ── 학생 추가 모달 ──────────────────────────────────────────────────
+function AddStudentModal({ onClose, onAdded, showToast }) {
+  const [f, setF] = useStA({ name: "", email: "", mobile: "", label: "고2" });
+  const up = (k, v) => setF((p) => ({ ...p, [k]: v }));
+  const submit = () => {
+    if (!f.name.trim()) { showToast("이름을 입력하세요"); return; }
+    if (!f.email.trim() || !/.+@.+\..+/.test(f.email)) { showToast("올바른 이메일을 입력하세요 (ClassIn 계정 발급용)"); return; }
+    const uid = stuAdd({ name: f.name.trim(), email: f.email.trim().toLowerCase(), mobile: f.mobile.trim(), label: f.label, status: "active", courses: [] });
+    showToast(`${f.name} 등록 · 가입 이메일로 ClassIn 계정(UID)이 발급됩니다`);
+    onAdded(uid);
+  };
+  return (
+    <div className="ci-modal-overlay" onClick={onClose}>
+      <div className="ci-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="ci-modal-head">학생 추가 <button className="ci-x" onClick={onClose}><Icon name="close" size={16} /></button></div>
+        <div className="ci-modal-body">
+          <div className="ci-field"><label>이름 *</label><input value={f.name} onChange={(e) => up("name", e.target.value)} placeholder="홍길동" /></div>
+          <div className="ci-field"><label>이메일 * (ClassIn 계정 · 메인 식별 키)</label><input value={f.email} onChange={(e) => up("email", e.target.value)} placeholder="student@example.com" inputMode="email" /></div>
+          <div className="ci-field"><label>휴대폰 (선택)</label><input value={f.mobile} onChange={(e) => up("mobile", e.target.value)} placeholder="010-0000-0000" inputMode="tel" /></div>
+          <div className="ci-field"><label>학년 · 반</label>
+            <select value={f.label} onChange={(e) => up("label", e.target.value)}>
+              {["중1", "중2", "중3", "고1", "고2", "고3", "N수생", "중A", "중B", "고A"].map((g) => <option key={g}>{g}</option>)}
+            </select>
+          </div>
+          <p style={{ fontSize: 12, color: "var(--ci-muted)", lineHeight: 1.6, margin: "4px 0 0" }}>
+            저장 시 가입 이메일로 ClassIn 계정이 대신 등록되고(sync-user.php → register), 반환된 UID가 이 학생에 연결됩니다.
+          </p>
+        </div>
+        <div className="ci-modal-foot">
+          <button className="ci-act" onClick={onClose}>취소</button>
+          <button className="ci-act navy" onClick={submit}><Icon name="check" size={13} /> 추가</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+window.AddStudentModal = AddStudentModal;

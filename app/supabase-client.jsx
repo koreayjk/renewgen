@@ -26,8 +26,54 @@ function mapSbUser(u) {
   const md = u.user_metadata || {};
   const name = md.name || (u.email ? u.email.split("@")[0] : "회원");
   const initials = /[가-힣]/.test(name) ? name.slice(-2) : name.slice(0, 2).toUpperCase();
-  return { id: u.id, email: u.email, name, initials, grade: md.grade, school: md.school, subject: md.subject };
+  return { id: u.id, email: u.email, name, initials, grade: md.grade, school: md.school, subject: md.subject, role: getUserRole({ email: u.email, metaRole: md.role }) };
 }
+
+// ──────────────────────────────────────────────────────────────────
+//  권한(역할) 시스템 — student / teacher / admin
+//  · 기본은 모두 student. 관리자 콘솔(/admin)은 teacher·admin 만 진입.
+//  · 비밀키·권한부여 등 민감 기능은 admin 전용.
+//  · 초기 관리자는 아래 allowlist 로 고정(코드에 박힘) → 항상 admin.
+//  · 그 외 등업은 admin 콘솔에서 부여 → localStorage(rj-roles)에 이메일별 저장.
+//    (실서버에서는 Supabase profiles.role 로 옮기고 RLS 로 보호하면 됩니다)
+// ──────────────────────────────────────────────────────────────────
+const RJ_ADMIN_EMAILS = ["koreayjk@gmail.com"]; // 고정 관리자
+const RJ_ROLE_RANK = { student: 0, teacher: 1, admin: 2 };
+
+function _emailOf(u) { return (typeof u === "string" ? u : (u && u.email) || "").trim().toLowerCase(); }
+function _roleStore() {
+  try { return JSON.parse(localStorage.getItem("rj-roles") || "{}") || {}; } catch (e) { return {}; }
+}
+function _saveRoleStore(s) { try { localStorage.setItem("rj-roles", JSON.stringify(s)); } catch (e) {} }
+
+function getUserRole(u) {
+  const e = _emailOf(u);
+  if (!e) return "student";
+  if (RJ_ADMIN_EMAILS.includes(e)) return "admin";        // 고정 관리자 최우선
+  const ov = _roleStore()[e];
+  if (ov && RJ_ROLE_RANK[ov] != null) return ov;          // 콘솔에서 부여한 역할
+  if (u && typeof u === "object" && u.metaRole && RJ_ROLE_RANK[u.metaRole] != null) return u.metaRole;
+  return "student";
+}
+function setUserRole(email, role) {
+  const e = (email || "").trim().toLowerCase();
+  if (!e || RJ_ROLE_RANK[role] == null) return false;
+  if (RJ_ADMIN_EMAILS.includes(e)) return true;           // 고정 관리자는 강등 불가
+  const s = _roleStore();
+  if (role === "student") delete s[e]; else s[e] = role;   // student=기본이므로 제거
+  _saveRoleStore(s);
+  return true;
+}
+function listRoleGrants() {
+  const out = RJ_ADMIN_EMAILS.map((e) => ({ email: e, role: "admin", fixed: true }));
+  const s = _roleStore();
+  for (const e in s) if (!RJ_ADMIN_EMAILS.includes(e)) out.push({ email: e, role: s[e], fixed: false });
+  return out;
+}
+function isStaff(u) { return RJ_ROLE_RANK[getUserRole(u)] >= 1; }   // teacher or admin
+function isAdmin(u) { return getUserRole(u) === "admin"; }
+
+Object.assign(window, { getUserRole, setUserRole, listRoleGrants, isStaff, isAdmin, RJ_ADMIN_EMAILS });
 
 window.getSupabase = getSupabase;
 window.mapSbUser = mapSbUser;

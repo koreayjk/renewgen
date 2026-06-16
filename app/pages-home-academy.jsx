@@ -11,69 +11,62 @@ function HomeAcademy() {
   return (
     <div className="page-enter">
       <AcadHero />
-      <AcadBragBar />
-      <AcadInstructors />
-      <AcadRankingAndTimetable />
-      <AcadCourses />
+      <AboutKeyPoints />
+      <AboutObjections />
+      <AboutCompare />
+      <AboutResults />
+      <AcadPhotoBand />
       <AcadReviews />
-      <AcadCTA />
     </div>
+  );
+}
+
+// ── 수업 현장 포토 밴드 ─────────────────────────────────────────────
+function AcadPhotoBand() {
+  const photos = ["p11.jpg", "p17.jpg", "p14.jpg", "p05.jpg"];
+  return (
+    <section style={{ background: "#0A1626" }}>
+      <div className="container-wide" style={{ paddingTop: 72, paddingBottom: 76 }}>
+        <div style={{ textAlign: "center", marginBottom: 30 }}>
+          <span style={{ display: "inline-block", background: "var(--acad-yellow)", color: "var(--acad-navy)", fontWeight: 800, fontSize: 13, padding: "7px 13px", borderRadius: 5 }}>수업 현장</span>
+          <h2 style={{ color: "#fff", fontWeight: 900, fontSize: "clamp(28px, 3.4vw, 42px)", letterSpacing: "-0.04em", margin: "18px 0 0" }}>
+            화면 너머, <em style={{ fontStyle: "normal", color: "var(--acad-yellow)" }}>매일 만나는</em> 리뉴젠 교실
+          </h2>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+          {photos.map((p) => (
+            <div key={p} style={{ aspectRatio: "4 / 5", borderRadius: 14, overflow: "hidden", border: "1px solid rgba(255,255,255,0.12)" }}>
+              <img src={"assets/photos/" + p} alt="리뉴젠 온라인 수업 현장" loading="lazy"
+                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
 // ── Hero ──────────────────────────────────────────────────────────
 function AcadHero() {
-  const { navigate } = useApp();
-  // D-day to 2026 수능 (Nov 12, 2026). Today is May 21, 2026 in the system.
-  const dday = useMemoAcad(() => {
-    const exam = new Date("2026-11-12T08:40:00+09:00");
-    const today = new Date();
-    const ms = exam - today;
-    return Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
-  }, []);
-
   return (
-    <section className="acad-hero">
-      <div className="container-wide acad-hero-inner">
-        <div>
-          <span className="acad-tag-red">2026학년도 · 여름 라이브 시즌 OPEN</span>
-          <h1 className="acad-headline" style={{ fontSize: "clamp(34px, 3.7vw, 52px)", lineHeight: 1.14 }}>
-            대한민국 기독교 교육 <em>1위</em><br />
-            국내·해외 입시 <em>TCS</em>,<br />
-            <em>Total Care System</em>.
-          </h1>
-          <p className="acad-sub">
-            리뉴젠 아카데미는 온라인 실시간 수업으로, 기독교 관점의 교과목 학습을 제공합니다.
-            검정고시부터 수능·토플까지 — 끊김 없는 한 주의 학습을 완성하세요.
-          </p>
-
-          <div className="acad-dday">
-            <div>
-              <div className="acad-dday-label">2026 수능까지</div>
-              <div className="acad-dday-num">D-{dday}</div>
-            </div>
-            <div className="acad-dday-sep" />
-            <div>
-              <div className="acad-dday-label">여름 라이브 시즌 시작</div>
-              <div className="acad-dday-num" style={{ fontSize: 22 }}>06.03 (월) 20:00</div>
-            </div>
-          </div>
-
-          <div style={{ display: "flex", gap: 10, marginTop: 28, flexWrap: "wrap" }}>
-            <button className="acad-btn acad-btn-red" onClick={() => navigate("/courses")}>
-              여름 시즌 강의 신청 <Icon name="arrow" size={16} />
-            </button>
-            <button className="acad-btn acad-btn-yellow" onClick={() => navigate("/signup")}>
-              7일 무료 체험
-            </button>
-            <button className="acad-btn acad-btn-ghost-white" onClick={() => navigate("/live")}>
-              <Icon name="live" size={16} /> 오늘의 라이브
-            </button>
-          </div>
-        </div>
-
-        {/* Hero right: feature billboard — top instructor card stacked with bragline */}
-        <AcadHeroBillboard />
+    <section style={{
+      position: "relative", display: "flex", alignItems: "center", minHeight: "80vh",
+      backgroundImage: "url(assets/photos/p09.jpg)", backgroundSize: "cover", backgroundPosition: "center 30%",
+    }}>
+      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(96deg, rgba(0,16,34,0.94) 0%, rgba(0,16,34,0.80) 40%, rgba(0,16,34,0.46) 78%, rgba(0,16,34,0.30) 100%)" }} />
+      <div className="container-wide" style={{ position: "relative", paddingTop: 110, paddingBottom: 110 }}>
+        <span style={{ display: "inline-block", background: "var(--acad-yellow)", color: "var(--acad-navy)", fontWeight: 800, fontSize: 13.5, padding: "8px 14px", borderRadius: 6, letterSpacing: "-0.01em" }}>
+          대한민국 기독교 교육 1위 · 국내·해외 입시
+        </span>
+        <h1 className="acad-headline" style={{ color: "#fff", fontSize: "clamp(36px, 4.6vw, 62px)", lineHeight: 1.12, letterSpacing: "-0.045em", margin: "24px 0 0" }}>
+          대한민국 기독교 교육 <em style={{ fontStyle: "normal", color: "var(--acad-yellow)" }}>1위</em><br />
+          국내·해외 입시 <em style={{ fontStyle: "normal", color: "var(--acad-yellow)" }}>TCS</em>,<br />
+          <em style={{ fontStyle: "normal", color: "var(--acad-yellow)" }}>Total Care System</em>.
+        </h1>
+        <p style={{ color: "rgba(255,255,255,0.9)", fontSize: "clamp(16px, 1.55vw, 20px)", lineHeight: 1.72, maxWidth: 700, marginTop: 24, fontWeight: 500 }}>
+          리뉴젠 아카데미는 온라인 실시간 수업으로, 기독교 관점의 교과목 학습을 제공합니다.
+          검정고시부터 수능·토플까지 — 끊김 없는 한 주의 학습을 완성하세요.
+        </p>
       </div>
     </section>
   );

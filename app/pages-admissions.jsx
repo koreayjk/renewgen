@@ -58,6 +58,8 @@ function AdmissionsPage() {
     <div className="page-enter">
       {/* HERO */}
       <section style={{ background: A_NAVY, color: "#fff", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", inset: 0, backgroundImage: "url(assets/photos/p10.jpg)", backgroundSize: "cover", backgroundPosition: "center 30%", opacity: 0.26 }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(92deg, rgba(0,18,38,0.93) 0%, rgba(0,18,38,0.74) 55%, rgba(0,18,38,0.5) 100%)" }} />
         <div style={{ position: "absolute", inset: 0, background: "radial-gradient(60% 90% at 12% 0%, rgba(255,214,10,0.16), transparent 60%)", pointerEvents: "none" }} />
         <div className="container-wide" style={{ position: "relative", paddingTop: 72, paddingBottom: 60 }}>
           <span style={{ display: "inline-block", background: A_YEL, color: A_NAVY, fontWeight: 800, fontSize: 13, padding: "7px 13px", borderRadius: 5, whiteSpace: "nowrap" }}>입시정보 · 1위 기독교 온라인 원격 학원</span>

@@ -39,6 +39,8 @@ function SubscribePage() {
     <div className="page-enter">
       {/* HERO */}
       <section style={{ background: S_NAVY, color: "#fff", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", inset: 0, backgroundImage: "url(assets/photos/p09.jpg)", backgroundSize: "cover", backgroundPosition: "center 30%", opacity: 0.22 }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(92deg, rgba(0,18,38,0.92) 0%, rgba(0,18,38,0.72) 55%, rgba(0,18,38,0.48) 100%)" }} />
         <div style={{ position: "absolute", inset: 0, background: "radial-gradient(55% 90% at 85% 0%, rgba(255,214,10,0.18), transparent 60%)", pointerEvents: "none" }} />
         <div className="container-wide" style={{ position: "relative", paddingTop: 72, paddingBottom: 60, display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 56, alignItems: "center" }}>
           <div>
@@ -121,7 +123,7 @@ function SubscribePage() {
                 {selected} · 월 {won(TIERS.find((t) => t.tier === selected).monthly)} <span style={{ color: "rgba(255,255,255,0.6)", fontWeight: 600, fontSize: 15 }}>(분기당 {won(TIERS.find((t) => t.tier === selected).quarter)})</span>
               </div>
             </div>
-            <button onClick={() => { showToast(selected + " 프리패스를 장바구니에 담았습니다"); navigate("/checkout"); }} style={{
+            <button onClick={() => { window.demoSubscribe && window.demoSubscribe(); showToast(selected + " 구독 완료 — 모든 녹화본을 무료로 시청할 수 있습니다"); navigate("/mypage?tab=recordings"); }} style={{
               background: S_YEL, color: S_NAVY, fontWeight: 900, fontSize: 16, border: 0,
               height: 56, padding: "0 32px", borderRadius: 10, cursor: "pointer",
               display: "inline-flex", alignItems: "center", gap: 8, whiteSpace: "nowrap",

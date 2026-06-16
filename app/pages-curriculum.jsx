@@ -41,6 +41,8 @@ function CurriculumPage() {
     <div className="page-enter">
       {/* HERO */}
       <section style={{ background: NAVY, color: "#fff", overflow: "hidden", position: "relative" }}>
+        <div style={{ position: "absolute", inset: 0, backgroundImage: "url(assets/photos/p02.jpg)", backgroundSize: "cover", backgroundPosition: "center 30%", opacity: 0.26 }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(92deg, rgba(0,18,38,0.93) 0%, rgba(0,18,38,0.74) 55%, rgba(0,18,38,0.5) 100%)" }} />
         <div style={{ position: "absolute", inset: 0, background: "radial-gradient(60% 90% at 88% 0%, rgba(255,214,10,0.16), transparent 60%)", pointerEvents: "none" }} />
         <div className="container-wide" style={{ position: "relative", paddingTop: 72, paddingBottom: 64 }}>
           <span style={{ display: "inline-block", background: YEL, color: NAVY, fontWeight: 800, fontSize: 13, padding: "7px 13px", borderRadius: 5, letterSpacing: "0.01em" }}>커리큘럼 · CURRICULUM</span>

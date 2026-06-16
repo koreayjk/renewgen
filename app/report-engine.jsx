@@ -1,0 +1,413 @@
+/* global window */
+// ──────────────────────────────────────────────────────────────────
+// 월말평가 성적표 엔진 — ClassIn CSV 파서 + 학생별 분류 + 누적 저장 + 추이
+//   · ClassIn 수업별 성적 CSV(Export)를 브라우저에서 직접 파싱
+//   · 이름(+소속)으로 학생을 묶어 과목별 점수표를 생성
+//   · 업로드 회차를 localStorage에 누적 → 회차별 추이 그래프
+// 외부 라이브러리 없음. 전부 순수 JS.
+// ──────────────────────────────────────────────────────────────────
+
+const RJ_REPORT_STORE_KEY = "rj_report_store_v2";
+
+// 표준 과목 순서 + 색상
+const RJ_SUBJECTS = [
+  { id: "국어", color: "#001D3D" },
+  { id: "영어", color: "#2A6FDB" },
+  { id: "수학", color: "#C0392B" },
+  { id: "사회", color: "#C9831A" },
+  { id: "과학", color: "#1E8A5B" },
+];
+const RJ_SUBJECT_KEYS = ["국어", "영어", "수학", "사회", "과학", "한국사", "역사", "도덕", "통합사회", "통합과학"];
+
+// ── CSV 파서 (따옴표·콤마·개행 처리) ───────────────────────────────
+function parseCSV(text) {
+  text = String(text).replace(/^\uFEFF/, "");
+  const rows = [];
+  let row = [], field = "", i = 0, inQ = false;
+  while (i < text.length) {
+    const c = text[i];
+    if (inQ) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i += 2; continue; }
+        inQ = false; i++; continue;
+      }
+      field += c; i++; continue;
+    }
+    if (c === '"') { inQ = true; i++; continue; }
+    if (c === ",") { row.push(field); field = ""; i++; continue; }
+    if (c === "\r") { i++; continue; }
+    if (c === "\n") { row.push(field); rows.push(row); row = []; field = ""; i++; continue; }
+    field += c; i++;
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+
+// ── 파일명에서 학년반 + 과목 추출 ─────────────────────────────────
+//   "[2026-2] 중A 수학 (중1-2)_20260616093502.csv" → { level:"중A", subject:"수학" }
+function parseFileName(name) {
+  let base = String(name).replace(/\.csv$/i, "");
+  base = base.replace(/_\d{6,}$/, "");               // 끝의 타임스탬프 제거
+  const m = base.match(/\]\s*(.+)$/);                 // [2026-2] 접두 제거
+  let rest = (m ? m[1] : base).trim();
+  return extractLevelSubject(rest);
+}
+
+// 임의 문자열(시험제목/단원명/코스명)에서 레벨(중A/고B…)+과목 추출
+//   ClassIn 답안카드 푸시는 파일명이 없으므로 활동명에서 뽑는다.
+//   예) "중A 수학 월말평가" · "고B 통합과학 6월" → {level, subject}
+function extractLevelSubject(rest) {
+  rest = String(rest).trim();
+  const lm = rest.match(/(중|고|초)\s*[A-Za-z0-9]+/); // 레벨 (중A/중B/고A…)
+  const level = lm ? lm[0].replace(/\s+/g, "") : "기타";
+  let subject = RJ_SUBJECT_KEYS.find((s) => rest.includes(s)) || rest.replace(level, "").trim() || "기타";
+  if (subject === "통합사회") subject = "사회";
+  if (subject === "통합과학") subject = "과학";
+  return { level, subject, raw: rest };
+}
+
+const META_FIRST = /^(student|total score|grades category|average|maximum|minimum|median|std|standard|class|평균|최고|최저|응시|미응시)/i;
+
+// 숫자 파싱 ("87.2%", "36", "-", "")
+function num(v) {
+  if (v == null) return null;
+  const s = String(v).replace(/[%\s]/g, "").trim();
+  if (s === "" || s === "-" || s === "–" || s === "—") return null;
+  const n = parseFloat(s);
+  return isNaN(n) ? null : n;
+}
+
+// ── 한 수업(CSV) → 학생 점수 목록 ─────────────────────────────────
+function parseSubjectRows(rows) {
+  if (!rows.length) return { max: 100, students: [] };
+  const header = rows[0] || [];
+  const assessCols = Math.max(1, header.length - 2); // 2열부터 평가 컬럼
+  // 만점: "Total Score" 라벨 행에서
+  let max = 100;
+  const maxRow = rows.find((r) => (r[0] || "").trim().toLowerCase() === "total score" && (r[1] || "").trim() === "");
+  if (maxRow) {
+    const mx = maxRow.slice(2).map(num).filter((x) => x != null);
+    if (mx.length) max = Math.max(...mx);
+  }
+  const students = [];
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r];
+    const first = (row[0] || "").trim();
+    if (!first) continue;             // 메타(시간) 행
+    if (META_FIRST.test(first)) continue;
+    // 평가 컬럼들 → 재시험 등 여러 점수 중 '더 높은 점수' 채택
+    const cells = row.slice(2, 2 + assessCols).map(num).filter((x) => x != null);
+    const score = cells.length ? Math.max(...cells) : null;
+    const pct = num(row[1]);
+    const us = first.indexOf("_");
+    const studentName = us >= 0 ? first.slice(0, us).trim() : first;
+    const org = us >= 0 ? first.slice(us + 1).trim() : null;
+    students.push({ name: studentName, org, raw: first, score, pct, attempted: score != null });
+  }
+  return { max, students };
+}
+
+// ── 여러 파일 → 한 회차(round) 객체 ───────────────────────────────
+//   files: [{ name, text }]
+function buildRound(files, label, opts = {}) {
+  const round = {
+    id: opts.id || "r-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    label: label || "새 회차",
+    createdAt: opts.createdAt || Date.now(),
+    seq: opts.seq != null ? opts.seq : Date.now(),
+    demo: !!opts.demo,
+    students: {},          // key → { name, org, level, subjects:{} }
+    subjectsByLevel: {},   // level → Set(subjectId)  (배열로 저장)
+    fileCount: files.length,
+  };
+  const perSubject = []; // {level, subject, max, students:[{key,...}]}
+  for (const f of files) {
+    const fn = parseFileName(f.name);
+    const parsed = parseSubjectRows(parseCSV(f.text));
+    const entry = { level: fn.level, subject: fn.subject, max: parsed.max, list: [] };
+    for (const s of parsed.students) {
+      const key = s.name + "|" + (s.org || "");
+      entry.list.push({ key, ...s });
+      if (!round.students[key]) round.students[key] = { name: s.name, org: s.org, level: fn.level, subjects: {} };
+      // 점수 있는 과목만 등록 (없으면 미응시로 후처리)
+      round.students[key].subjects[fn.subject] = {
+        score: s.score, max: parsed.max, pct: s.pct, level: fn.level, attempted: s.attempted,
+      };
+      if (!round.subjectsByLevel[fn.level]) round.subjectsByLevel[fn.level] = [];
+      if (!round.subjectsByLevel[fn.level].includes(fn.subject)) round.subjectsByLevel[fn.level].push(fn.subject);
+    }
+    perSubject.push(entry);
+  }
+  applySubjectStats(round, perSubject);
+  computeOverall(round);
+  return round;
+}
+
+// 반평균 + 과목별 석차 (CSV·ClassIn 공용)
+function applySubjectStats(round, perSubject) {
+  for (const e of perSubject) {
+    const taken = e.list.filter((x) => x.score != null);
+    const avg = taken.length ? taken.reduce((a, b) => a + b.score, 0) / taken.length : 0;
+    const sorted = [...taken].sort((a, b) => b.score - a.score);
+    for (const x of e.list) {
+      const sd = round.students[x.key].subjects[e.subject];
+      if (!sd) continue;
+      sd.classAvg = Math.round(avg * 10) / 10;
+      sd.classN = taken.length;
+      sd.rank = x.score != null ? sorted.findIndex((t) => t.key === x.key) + 1 : null;
+    }
+  }
+}
+
+// ── ClassIn 성적 푸시(scores.php rows) → 한 회차(round) ───────────
+//   rows: scores.php 의 rows[] (AnswerSheetScore/ExamScore 행)
+//   · 학생 식별은 student_uid(가장 안전) → 동명이인도 안전하게 분리
+//   · 레벨/과목은 activity_name·unit_name·course_name 에서 추출
+function buildRoundFromClassIn(rows, label, opts = {}) {
+  const round = {
+    id: opts.id || "ci-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    label: label || "새 회차",
+    createdAt: opts.createdAt || Date.now(),
+    seq: opts.seq != null ? opts.seq : Date.now(),
+    demo: false,
+    source: "classin",
+    students: {},
+    subjectsByLevel: {},
+    fileCount: 0,
+  };
+  // 시험(활동)별로 묶기 — 한 활동 = 한 레벨의 한 과목 시험
+  const byActivity = {};
+  for (const r of rows) (byActivity[r.activity_id] = byActivity[r.activity_id] || []).push(r);
+  round.fileCount = Object.keys(byActivity).length;
+
+  const perSubject = [];
+  for (const aid in byActivity) {
+    const list = byActivity[aid];
+    const first = list[0];
+    const meta = extractLevelSubject(
+      [first.activity_name, first.unit_name, first.course_name].filter(Boolean).join(" ")
+    );
+    const maxes = list.map((x) => Number(x.max_score)).filter((n) => n > 0);
+    const max = maxes.length ? Math.max(...maxes) : 100;
+    const entry = { level: meta.level, subject: meta.subject, max, list: [] };
+
+    for (const s of list) {
+      const key = "uid:" + (s.student_uid || s.student_name);
+      const score = s.score != null && s.score !== "" ? Number(s.score) : null;
+      const pct = s.scoring_rate != null && s.scoring_rate !== ""
+        ? Math.round(Number(s.scoring_rate) * 1000) / 10
+        : (score != null && max ? Math.round((score / max) * 1000) / 10 : null);
+
+      entry.list.push({ key, name: s.student_name || "(이름없음)", org: s.course_name || null, score, pct, attempted: score != null });
+      if (!round.students[key]) {
+        round.students[key] = {
+          name: s.student_name || "(이름없음)", org: s.course_name || null, level: meta.level,
+          uid: s.student_uid || null, memberId: s.member_id || null, subjects: {},
+        };
+      }
+      round.students[key].subjects[meta.subject] = { score, max, pct, level: meta.level, attempted: score != null };
+      if (!round.subjectsByLevel[meta.level]) round.subjectsByLevel[meta.level] = [];
+      if (!round.subjectsByLevel[meta.level].includes(meta.subject)) round.subjectsByLevel[meta.level].push(meta.subject);
+    }
+    perSubject.push(entry);
+  }
+  applySubjectStats(round, perSubject);
+  computeOverall(round);
+  return round;
+}
+
+// 학생별 총점/평균 + 레벨 내 석차
+function computeOverall(round) {
+  const byLevel = {};
+  for (const key in round.students) {
+    const st = round.students[key];
+    const scores = Object.values(st.subjects).map((s) => s.score).filter((x) => x != null);
+    st.avg = scores.length ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10 : null;
+    st.total = scores.length ? scores.reduce((a, b) => a + b, 0) : null;
+    st.taken = scores.length;
+    (byLevel[st.level] = byLevel[st.level] || []).push(st);
+  }
+  for (const lv in byLevel) {
+    const cohort = byLevel[lv].filter((s) => s.avg != null).sort((a, b) => b.avg - a.avg);
+    byLevel[lv].forEach((s) => {
+      s.cohortN = cohort.length;
+      s.cohortAvg = cohort.length ? Math.round((cohort.reduce((a, b) => a + b.avg, 0) / cohort.length) * 10) / 10 : null;
+      s.rankOverall = s.avg != null ? cohort.findIndex((c) => c === s) + 1 : null;
+    });
+  }
+  return round;
+}
+
+// ── 저장소 (localStorage) ─────────────────────────────────────────
+function loadStore() {
+  try {
+    const raw = localStorage.getItem(RJ_REPORT_STORE_KEY);
+    if (!raw) return { rounds: [] };
+    const s = JSON.parse(raw);
+    return s && Array.isArray(s.rounds) ? s : { rounds: [] };
+  } catch (e) { return { rounds: [] }; }
+}
+function saveStore(store) {
+  try { localStorage.setItem(RJ_REPORT_STORE_KEY, JSON.stringify(store)); } catch (e) {}
+  return store;
+}
+function sortedRounds(store) {
+  return [...(store.rounds || [])].sort((a, b) => a.seq - b.seq);
+}
+function clearStore() { return saveStore({ rounds: [] }); }
+
+function addRound(round) {
+  const store = loadStore();
+  store.rounds.push(round);
+  return saveStore(store);
+}
+function removeRound(id) {
+  const store = loadStore();
+  store.rounds = store.rounds.filter((r) => r.id !== id);
+  return saveStore(store);
+}
+
+// ── 학생 추이 (회차별 평균 + 과목별 점수) ──────────────────────────
+function studentTrend(store, key) {
+  return sortedRounds(store)
+    .filter((r) => r.students[key])
+    .map((r) => {
+      const st = r.students[key];
+      const subjects = {};
+      for (const sid in st.subjects) subjects[sid] = st.subjects[sid].score;
+      return { roundId: r.id, label: r.label, shortLabel: shortLabel(r.label), avg: st.avg, subjects };
+    });
+}
+function shortLabel(label) {
+  const m = String(label).match(/(\d+)\s*월/);
+  return m ? m[1] + "월" : label;
+}
+
+// 학생 전체 목록 (특정 회차) — 정렬/검색용
+function rosterOf(round) {
+  return Object.entries(round.students).map(([key, st]) => ({ key, ...st }));
+}
+
+// ── 데모 데이터 (3회차, 우상향 추이) ───────────────────────────────
+function seededRand(seed) {
+  let s = 0; for (let i = 0; i < seed.length; i++) s = (s * 31 + seed.charCodeAt(i)) >>> 0;
+  return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+}
+const DEMO_ROSTER = {
+  "중A": [["박종하", "본부"], ["염하은", "아미"], ["장민", "그레이스"], ["서승민", "본부"], ["김도윤", null], ["이서연", "새벽이슬"], ["정하준", null], ["오세아", "홈스쿨"]],
+  "중B": [["박은혜", null], ["김하윤", "아미"], ["최우진", "본부"], ["한지우", "홈스쿨"], ["윤서아", null], ["신예준", "그레이스"], ["조하준", null]],
+  "고A": [["전하은", "본부"], ["오지훈", null], ["강예린", "그레이스"], ["임수호", "본부"], ["송가은", "새벽이슬"], ["배진우", null], ["노아름", "아미"]],
+};
+
+function genDemoStore() {
+  const labels = ["2026 · 3월 월말평가", "2026 · 4월 월말평가", "2026 · 5월 월말평가"];
+  const rounds = [];
+  const base = Date.now() - 1000 * 60 * 60 * 24 * 70;
+  labels.forEach((label, ri) => {
+    const files = [];
+    for (const level in DEMO_ROSTER) {
+      const roster = DEMO_ROSTER[level];
+      for (const subj of ["국어", "영어", "수학", "사회", "과학"]) {
+        const rnd = seededRand(level + subj + "x");
+        const header = `Student,Total Score,"${subj} 월말평가"\n , ,"5월 월말평가"\n ,Start Time,"5月20日 08:10"\n ,End Time,"5月20日 22:59"\nTotal Score, ,100\nGrades Category, ,-\n`;
+        let body = "";
+        roster.forEach(([nm, org], si) => {
+          const r2 = seededRand(nm + (org || "") + subj);
+          const ability = 52 + Math.floor(r2() * 44);          // 학생·과목 기본기 52~96
+          const growth = ri * (3 + Math.floor(r2() * 6));        // 회차마다 상승
+          const noise = Math.floor((rnd() - 0.5) * 12);
+          let sc = Math.max(18, Math.min(100, ability - 14 + growth + noise));
+          const full = name => `"${name}"`;
+          const disp = org ? `${nm}_${org}` : nm;
+          body += `${full(disp)},${sc}%,${sc}\n`;
+        });
+        files.push({ name: `[2026-2] ${level} ${subj}_2026000000${ri}.csv`, text: header + body });
+      }
+    }
+    const round = buildRound(files, label, { demo: true, seq: base + ri * 1000000, createdAt: base + ri * 1000000, id: "demo-" + ri });
+    rounds.push(round);
+  });
+  return saveStore({ rounds });
+}
+
+// ── ClassIn 백엔드(scores.php) 연동 ───────────────────────────────
+//   홈페이지에서 백엔드 위치를 바꾸려면 window.RJ_CLASSIN_API 를 지정.
+//   (예: <script>window.RJ_CLASSIN_API='https://renewgen.com/classin/api'</script>)
+const RJ_CLASSIN_API = (typeof window !== "undefined" && window.RJ_CLASSIN_API) || "/classin/api";
+
+async function ciFetch(path) {
+  const res = await fetch(RJ_CLASSIN_API + path, { headers: { Accept: "application/json" } });
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  const j = await res.json();
+  if (j && j.ok === false) throw new Error(j.msg || "server error");
+  return j;
+}
+// 회차 선택용 — 성적이 들어온 시험(활동) 목록
+async function fetchClassInActivities(cmd = "AnswerSheetScore") {
+  const j = await ciFetch("/scores.php?action=activities&cmd=" + encodeURIComponent(cmd));
+  return j.activities || [];
+}
+// 선택한 시험들의 학생별 성적 행
+async function fetchClassInScores({ ids, since, cmd = "AnswerSheetScore" } = {}) {
+  const q = new URLSearchParams({ action: "rows", cmd });
+  if (ids && ids.length) q.set("ids", ids.join(","));
+  if (since) q.set("since", since);
+  const j = await ciFetch("/scores.php?" + q.toString());
+  return j.rows || [];
+}
+
+// 백엔드가 아직 안 붙은 환경(프로토타입)에서 자동 동기화 "결과 미리보기"용
+// scores.php 가 돌려줄 AnswerSheetScore rows 와 동일한 모양으로 시뮬레이션한다.
+function simulateClassInRows(roundIndex = 0) {
+  const rows = [];
+  const baseTs = Math.floor((Date.now() - (2 - roundIndex) * 1000 * 60 * 60 * 24 * 30) / 1000);
+  let levelBase = 27890000;
+  for (const level in DEMO_ROSTER) {
+    const roster = DEMO_ROSTER[level];
+    // 학생 1명 = UID 1개 (과목이 달라도 동일인) — 실제 클래스인도 StudentUid 는 고정
+    const uids = roster.map((_, si) => String(levelBase + si * 7));
+    ["국어", "영어", "수학", "사회", "과학"].forEach((subj) => {
+      const activityId = "act-" + level + "-" + subj + "-" + roundIndex;
+      const rnd = seededRand(level + subj + "sim");
+      roster.forEach(([nm, org], si) => {
+        const r2 = seededRand(nm + (org || "") + subj);
+        const ability = 52 + Math.floor(r2() * 44);
+        const growth = roundIndex * (3 + Math.floor(r2() * 6));
+        const noise = Math.floor((rnd() - 0.5) * 12);
+        const sc = Math.max(18, Math.min(100, ability - 14 + growth + noise));
+        rows.push({
+          cmd: "AnswerSheetScore",
+          course_id: "course-" + level,
+          course_name: level,
+          unit_id: "unit-" + roundIndex,
+          unit_name: "월말평가",
+          activity_id: activityId,
+          activity_name: `${level} ${subj} 월말평가`,
+          class_id: "0",
+          student_uid: uids[si],
+          student_name: nm,
+          student_account: "010" + String(10000000 + (Number(uids[si]) % 8999999)),
+          member_id: null,
+          max_score: 100,
+          score: sc,
+          scoring_rate: sc / 100,
+          topics: null,
+          submitted_at: new Date(baseTs * 1000).toISOString().slice(0, 19).replace("T", " "),
+          corrected_at: new Date(baseTs * 1000).toISOString().slice(0, 19).replace("T", " "),
+        });
+      });
+    });
+    levelBase += 1000;
+  }
+  return rows;
+}
+
+window.RJReport = {
+  STORE_KEY: RJ_REPORT_STORE_KEY,
+  CLASSIN_API: RJ_CLASSIN_API,
+  SUBJECTS: RJ_SUBJECTS, SUBJECT_KEYS: RJ_SUBJECT_KEYS,
+  parseCSV, parseFileName, extractLevelSubject, parseSubjectRows, buildRound, buildRoundFromClassIn,
+  loadStore, saveStore, clearStore, addRound, removeRound,
+  sortedRounds, studentTrend, rosterOf, shortLabel, genDemoStore,
+  fetchClassInActivities, fetchClassInScores, simulateClassInRows,
+};

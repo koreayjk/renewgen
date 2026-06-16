@@ -7,6 +7,7 @@ const { useState: useStateM, useEffect: useEffectM } = React;
 // ──────────────────────────────────────────────────────────────────
 const DASH_TABS = [
   ["overview",   "학습 홈",        "Overview"],
+  ["report",     "성적표",        "Report Card"],
   ["realtime",   "실시간 데이터",   "Live Data"],
   ["recordings", "다시보기",       "Recordings"],
   ["cloud",      "강의자료",       "Cloud Disk"],
@@ -46,8 +47,10 @@ function MyPage() {
   return (
     <div className="page-enter">
       {/* Hero band */}
-      <section style={{ background: "var(--ci-navy)", color: "#fff" }}>
-        <div className="container-wide" style={{ paddingTop: 40, paddingBottom: 28 }}>
+      <section style={{ background: "var(--ci-navy)", color: "#fff", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", inset: 0, backgroundImage: "url(assets/photos/p18.jpg)", backgroundSize: "cover", backgroundPosition: "center 30%", opacity: 0.22 }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(92deg, rgba(0,18,38,0.92) 0%, rgba(0,18,38,0.74) 60%, rgba(0,18,38,0.55) 100%)" }} />
+        <div className="container-wide" style={{ position: "relative", paddingTop: 40, paddingBottom: 28 }}>
           <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 26, alignItems: "center" }}>
             <span style={{ width: 76, height: 76, borderRadius: "50%", background: "var(--ci-yellow)", color: "var(--ci-navy)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-kr-serif)", fontWeight: 600, fontSize: 30 }}>{user.initials}</span>
             <div>
@@ -57,7 +60,9 @@ function MyPage() {
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               <button className="ci-act" style={{ height: 40 }} onClick={() => navigate("/weblive")}><Icon name="signal" size={14} /> 공개방송</button>
-              <button className="ci-act" style={{ height: 40 }} onClick={() => navigate("/admin")}><Icon name="settings" size={14} /> 관리자</button>
+              {window.isStaff && window.isStaff(user) && (
+                <button className="ci-act" style={{ height: 40 }} onClick={() => navigate("/admin")}><Icon name="settings" size={14} /> 관리자</button>
+              )}
               <button className="ci-act" style={{ height: 40 }} onClick={() => { logout(); navigate("/"); }}>로그아웃</button>
             </div>
           </div>
@@ -145,6 +150,7 @@ function MyPage() {
           </div>
         )}
 
+        {tab === "report" && <ReportSelfView userName={user.name} />}
         {tab === "realtime" && <RealtimePanel />}
         {tab === "recordings" && <RecordingsPanel onPlay={(id) => navigate("/player/" + id)} />}
         {tab === "cloud" && <CloudPanel />}

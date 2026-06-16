@@ -116,7 +116,7 @@ function AppProvider({ children, initialTweaks }) {
   const clearCart = () => setCart([]);
 
   const login = (email, name = "한도윤", initials = "도윤") => {
-    setUser({ email, name, initials });
+    setUser({ email, name, initials, role: (window.getUserRole ? window.getUserRole(email) : "student") });
     showToast(`${name}님, 환영합니다`);
   };
   const logout = async () => {
@@ -187,10 +187,9 @@ function AppProvider({ children, initialTweaks }) {
 
 // ── Header ──────────────────────────────────────────────────────────
 const NAV = [
-  { path: "/about", label: "소개" },
+  { path: "/about", label: "About" },
   { path: "/subscribe", label: "구독" },
   { path: "/courses", label: "강의" },
-  { path: "/live", label: "라이브" },
   { path: "/instructors", label: "강사" },
   { path: "/curriculum", label: "커리큘럼" },
   { path: "/admissions", label: "입시정보" },

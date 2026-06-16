@@ -31,7 +31,7 @@ function applyTweaks(t) {
 }
 
 function Router() {
-  const { route } = useApp();
+  const { route, user } = useApp();
   const path = route.path;
   const seg = path.split("/").filter(Boolean);
 
@@ -50,7 +50,7 @@ function Router() {
   }
   if (seg[0] === "subscribe") return <SubscribePage />;
   if (seg[0] === "weblive") return <WebLivePage />;
-  if (seg[0] === "admin") return <AdminPage />;
+  if (seg[0] === "admin") return (window.isStaff && window.isStaff(user)) ? <AdminPage /> : <AdminDenied user={user} />;
   if (seg[0] === "about") return <AboutPage />;
   if (seg[0] === "curriculum") return <CurriculumPage />;
   if (seg[0] === "admissions") return <AdmissionsPage />;

@@ -17,9 +17,11 @@ function AboutPage() {
     <div className="page-enter">
       {/* HERO */}
       <section style={{ background: NV, color: "#fff", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", inset: 0, backgroundImage: "url(assets/photos/p06.jpg)", backgroundSize: "cover", backgroundPosition: "center 30%", opacity: 0.3 }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(92deg, rgba(0,22,44,0.93) 0%, rgba(0,22,44,0.72) 55%, rgba(0,22,44,0.5) 100%)" }} />
         <div style={{ position: "absolute", inset: 0, background: "radial-gradient(58% 90% at 85% 0%, rgba(255,214,10,0.16), transparent 60%)", pointerEvents: "none" }} />
         <div className="container-wide" style={{ position: "relative", paddingTop: 72, paddingBottom: 60 }}>
-          <span style={{ display: "inline-block", background: YL, color: NV, fontWeight: 800, fontSize: 13, padding: "7px 13px", borderRadius: 5, whiteSpace: "nowrap" }}>소개 · ABOUT</span>
+          <span style={{ display: "inline-block", background: YL, color: NV, fontWeight: 800, fontSize: 13, padding: "7px 13px", borderRadius: 5, whiteSpace: "nowrap" }}>About</span>
           <h1 style={{ fontWeight: 900, fontSize: "clamp(42px, 5.2vw, 70px)", letterSpacing: "-0.045em", lineHeight: 1.07, margin: "20px 0 0" }}>
             기독교 교육을 <em style={{ fontStyle: "normal", color: YL }}>수호</em>하고,<br />다음세대를 <em style={{ fontStyle: "normal", color: YL }}>세웁니다</em>.
           </h1>
@@ -61,31 +63,9 @@ function AboutPage() {
 
       {/* 운영 시스템 */}
       <section style={{ background: CR, marginTop: 56 }}>
-        <div className="container-wide" style={{ paddingTop: 80, paddingBottom: 56 }}>
+        <div className="container-wide" style={{ paddingTop: 80, paddingBottom: 80 }}>
           <CurHead kor="운영 시스템" sub="‘클래스인(ClassIn)’ 기반의 쌍방향 실시간 수업으로, 기독교적 관점과 바른 태도로 학습하도록 공동체·부모님과 함께 체계적으로 진단·관리합니다." />
           <OperatingSystem />
-        </div>
-      </section>
-
-      {/* ── 리뉴젠만의 강점 (브로슈어 재해석) ── */}
-      <AboutKeyPoints />
-      <AboutObjections />
-      <AboutCompare />
-      <AboutResults />
-
-      {/* CTA */}
-      <section style={{ background: CR }}>
-        <div className="container-wide" style={{ paddingTop: 16, paddingBottom: 80 }}>
-          <div style={{ background: NV, borderRadius: 16, padding: "36px 44px", display: "grid", gridTemplateColumns: "1fr auto", gap: 24, alignItems: "center" }}>
-            <div style={{ color: "#fff" }}>
-              <h3 style={{ margin: 0, fontWeight: 900, fontSize: 26, letterSpacing: "-0.035em" }}>커리큘럼이 궁금하신가요?</h3>
-              <p style={{ margin: "10px 0 0", fontSize: 15.5, color: "rgba(255,255,255,0.78)", fontWeight: 500 }}>연 3학기 시스템의 학년별 진도와 분기 일정을 확인해보세요.</p>
-            </div>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => navigate("/curriculum")} style={{ background: YL, color: NV, fontWeight: 900, fontSize: 15, border: 0, height: 54, padding: "0 26px", borderRadius: 10, cursor: "pointer", whiteSpace: "nowrap" }}>커리큘럼 보기</button>
-              <button onClick={() => navigate("/admissions")} style={{ background: "transparent", color: "#fff", fontWeight: 800, fontSize: 15, border: "1.5px solid rgba(255,255,255,0.5)", height: 54, padding: "0 26px", borderRadius: 10, cursor: "pointer", whiteSpace: "nowrap" }}>입시정보</button>
-            </div>
-          </div>
         </div>
       </section>
     </div>

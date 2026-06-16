@@ -260,7 +260,7 @@ function AboutKeyPoints() {
               </p>
             </div>
             <div style={{ padding: 28, display: "flex", alignItems: "center" }}>
-              <ABShot id="kp-group" label="단체 사진 (수강생/현장)" ratio="16 / 11" frame="dark" />
+              <ABShot id="kp-group" src="kp-group.jpg" cover label="단체 사진 (수강생/현장)" ratio="16 / 11" frame="dark" />
             </div>
           </div>
         </div>
@@ -402,17 +402,17 @@ function AboutObjections() {
           </div>
           <div style={{ marginTop: 44, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
             <ABCard label="과제 점검">
-              <ABShot id="q3-hw" label="숙제 점검 화면 (제출물 · 점수)" ratio="16 / 11" />
+              <ABShot id="q3-hw" src="q3-hw.jpg" cover label="숙제 점검 화면 (제출물 · 점수)" ratio="16 / 11" />
               <ABNote>강사님이 직접 확인하는 <strong style={{ color: AB.navy }}>과제 점검 시스템</strong></ABNote>
             </ABCard>
             <ABCard label="출결 체크">
-              <ABShot id="q3-attend" label="출결 관리표" ratio="16 / 11" />
+              <ABShot id="q3-attend" src="q3-attend.jpg" cover label="출결 관리표" ratio="16 / 11" />
               <ABNote>한눈에 보는 <strong style={{ color: AB.navy }}>출결 관리 시스템</strong></ABNote>
             </ABCard>
           </div>
           <div style={{ marginTop: 20, maxWidth: 620, marginLeft: "auto", marginRight: "auto" }}>
             <ABCard label="학부모 개인 소식창">
-              <ABShot id="q3-kakao" label="학부모 카톡 소식창 캡처" ratio="16 / 10" />
+              <ABShot id="q3-kakao" src="q3-kakao.jpg" cover label="학부모 카톡 소식창 캡처" ratio="16 / 10" />
               <ABNote>수강생 <strong style={{ color: AB.navy }}>학부모 개인 소식창(카톡)</strong>으로 관리 및 소통</ABNote>
             </ABCard>
           </div>
@@ -443,8 +443,8 @@ function AboutObjections() {
             ))}
           </div>
           <div style={{ marginTop: 26, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
-            <ABShot id="q4-live" label="실시간 수업 질의응답 화면" ratio="16 / 10" />
-            <ABShot id="q4-qna" label="채팅/숙제 Q&A 화면" ratio="16 / 10" />
+            <ABShot id="q4-live" src="q4-live.jpg" cover label="실시간 수업 질의응답 화면" ratio="16 / 10" />
+            <ABShot id="q4-qna" src="q4-qna.jpg" cover label="채팅/숙제 Q&A 화면" ratio="16 / 10" />
           </div>
         </div>
       </section>

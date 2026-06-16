@@ -46,6 +46,8 @@ function FaqPage() {
     <div className="page-enter">
       {/* HERO */}
       <section style={{ background: F_NAVY, color: "#fff", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", inset: 0, backgroundImage: "url(assets/photos/p08.jpg)", backgroundSize: "cover", backgroundPosition: "center 30%", opacity: 0.26 }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(92deg, rgba(0,18,38,0.93) 0%, rgba(0,18,38,0.74) 55%, rgba(0,18,38,0.5) 100%)" }} />
         <div style={{ position: "absolute", inset: 0, background: "radial-gradient(50% 90% at 90% 0%, rgba(255,214,10,0.14), transparent 60%)", pointerEvents: "none" }} />
         <div className="container-wide" style={{ position: "relative", paddingTop: 68, paddingBottom: 56 }}>
           <span style={{ display: "inline-block", background: F_YEL, color: F_NAVY, fontWeight: 800, fontSize: 13, padding: "7px 13px", borderRadius: 5, whiteSpace: "nowrap" }}>FAQ · 자주 묻는 질문</span>

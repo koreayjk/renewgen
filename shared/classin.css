@@ -315,6 +315,53 @@
 .ci-act:hover { background: var(--ci-bg-2); }
 .ci-act.navy { background: var(--ci-navy); color: #fff; border-color: var(--ci-navy); }
 .ci-act.sm { height: 28px; padding: 0 9px; font-size: 11.5px; }
+.ci-act.danger { color: var(--ci-bad); border-color: rgba(192,57,43,0.3); }
+.ci-act.danger:hover { background: rgba(192,57,43,0.08); }
+
+/* ── 학생 관리: 툴바 ───────────────────────────────────────────── */
+.ci-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+.ci-search { flex: 1 1 220px; display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border: 1px solid var(--ci-line); border-radius: 8px; background: var(--ci-paper); color: var(--ci-muted); }
+.ci-search input { border: 0; outline: 0; background: transparent; flex: 1; font-size: 14px; font-family: var(--font-kr); color: var(--ci-ink); }
+.ci-select { height: 40px; border: 1px solid var(--ci-line); border-radius: 8px; padding: 0 12px; font-size: 13.5px; font-weight: 700; color: var(--ci-navy); background: var(--ci-paper); }
+.ci-row-clickable { cursor: pointer; }
+.ci-row-clickable.active td { background: var(--ci-bg-2); }
+
+/* ── 학생 상세 드로어 ──────────────────────────────────────────── */
+.ci-drawer-overlay { position: fixed; inset: 0; background: rgba(0,18,38,0.42); z-index: 1200; display: flex; justify-content: flex-end; animation: ciFade 0.18s ease; }
+.ci-drawer { width: min(520px, 94vw); height: 100%; background: var(--ci-bg, #F4F1EA); box-shadow: -16px 0 48px rgba(0,18,38,0.25); overflow-y: auto; animation: ciSlide 0.22s cubic-bezier(0.2,0.8,0.2,1); }
+.ci-drawer-head { position: sticky; top: 0; z-index: 2; background: var(--ci-navy); color: #fff; padding: 22px 24px; display: flex; align-items: center; gap: 14px; }
+.ci-drawer-head .av { width: 52px; height: 52px; border-radius: 50%; background: var(--ci-yellow); color: var(--ci-navy); display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 19px; flex-shrink: 0; }
+.ci-drawer-body { padding: 20px 24px 40px; display: grid; gap: 20px; }
+.ci-x { margin-left: auto; width: 34px; height: 34px; border-radius: 8px; border: 0; background: rgba(255,255,255,0.14); color: #fff; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.ci-x:hover { background: rgba(255,255,255,0.26); }
+.ci-sec { background: var(--ci-paper); border: 1px solid var(--ci-line); border-radius: 12px; padding: 16px 18px; }
+.ci-sec h5 { margin: 0 0 12px; font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ci-muted); display: flex; align-items: center; justify-content: space-between; }
+.ci-field { display: grid; gap: 5px; margin-bottom: 12px; }
+.ci-field:last-child { margin-bottom: 0; }
+.ci-field label { font-size: 11.5px; font-weight: 800; color: var(--ci-muted); }
+.ci-field input, .ci-field select, .ci-field textarea { width: 100%; border: 1px solid var(--ci-line); border-radius: 8px; padding: 9px 11px; font-size: 13.5px; font-family: var(--font-kr); background: var(--ci-paper); color: var(--ci-ink); }
+.ci-field textarea { resize: vertical; min-height: 64px; line-height: 1.55; }
+.ci-kv { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--ci-line); font-size: 13.5px; }
+.ci-kv:first-of-type { border-top: 0; }
+.ci-kv .k { color: var(--ci-muted); }
+.ci-kv .v { font-weight: 700; text-align: right; }
+.ci-chip { display: inline-flex; align-items: center; gap: 7px; padding: 6px 10px; border-radius: 999px; background: var(--ci-bg-2); font-size: 12.5px; font-weight: 700; color: var(--ci-navy); }
+.ci-chip button { border: 0; background: none; cursor: pointer; color: var(--ci-muted); display: inline-flex; padding: 0; }
+.ci-chip button:hover { color: var(--ci-bad); }
+.ci-trend { display: flex; align-items: flex-end; gap: 6px; height: 64px; }
+.ci-trend .bar { flex: 1; background: var(--ci-navy); border-radius: 4px 4px 0 0; min-height: 4px; position: relative; }
+.ci-trend .bar span { position: absolute; top: -16px; left: 0; right: 0; text-align: center; font-size: 10.5px; font-weight: 800; color: var(--ci-navy); font-family: var(--font-en); }
+.ci-trend .bar em { position: absolute; bottom: -17px; left: 0; right: 0; text-align: center; font-size: 10px; color: var(--ci-muted); font-style: normal; }
+
+/* ── 학생 추가 모달 ───────────────────────────────────────────── */
+.ci-modal-overlay { position: fixed; inset: 0; background: rgba(0,18,38,0.42); z-index: 1300; display: flex; align-items: center; justify-content: center; padding: 24px; animation: ciFade 0.18s ease; }
+.ci-modal { width: min(460px, 96vw); background: var(--ci-bg, #F4F1EA); border-radius: 16px; overflow: hidden; box-shadow: 0 24px 64px rgba(0,18,38,0.32); }
+.ci-modal-head { background: var(--ci-navy); color: #fff; padding: 18px 22px; font-weight: 800; font-size: 16px; display: flex; align-items: center; justify-content: space-between; }
+.ci-modal-body { padding: 20px 22px; }
+.ci-modal-foot { display: flex; gap: 8px; justify-content: flex-end; padding: 0 22px 20px; }
+
+@keyframes ciFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ciSlide { from { transform: translateX(24px); opacity: 0.4; } to { transform: translateX(0); opacity: 1; } }
 
 @media (max-width: 1100px) {
   .ci-kpis { grid-template-columns: repeat(3, 1fr); }

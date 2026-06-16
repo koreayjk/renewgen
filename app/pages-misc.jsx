@@ -56,6 +56,8 @@ function InstructorsPage() {
     <div className="page-enter">
       {/* HERO */}
       <section style={{ background: NV, color: "#fff", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", inset: 0, backgroundImage: "url(assets/photos/p16.jpg)", backgroundSize: "cover", backgroundPosition: "center 30%", opacity: 0.26 }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(92deg, rgba(0,18,38,0.93) 0%, rgba(0,18,38,0.74) 55%, rgba(0,18,38,0.5) 100%)" }} />
         <div style={{ position: "absolute", inset: 0, background: "radial-gradient(55% 90% at 88% 0%, rgba(255,214,10,0.15), transparent 60%)", pointerEvents: "none" }} />
         <div className="container-wide" style={{ position: "relative", paddingTop: 68, paddingBottom: 52 }}>
           <span style={{ display: "inline-block", background: YL, color: NV, fontWeight: 800, fontSize: 13, padding: "7px 13px", borderRadius: 5 }}>강사 · THE FACULTY</span>

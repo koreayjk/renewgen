@@ -115,7 +115,7 @@ function SignupPage() {
   const { navigate, login, signUp, showToast } = useApp();
   const [step, setStep] = useStateA(1);
   const [busy, setBusy] = useStateA(false);
-  const [data, setData] = useStateA({ email: "", password: "", name: "", grade: "고2", subject: "math", school: "", agree: { service: false, privacy: false, marketing: false } });
+  const [data, setData] = useStateA({ email: "", password: "", name: "", phone: "", grade: "고2", subject: "math", school: "", agree: { service: false, privacy: false, marketing: false } });
   const update = (k, v) => setData((d) => ({ ...d, [k]: v }));
   const allAgree = data.agree.service && data.agree.privacy;
 
@@ -206,6 +206,10 @@ function SignupPage() {
       {step === 2 && (
         <div style={{ marginTop: 32, display: "grid", gap: 18 }}>
           <div className="field"><label>이름</label><input className="input input-lg" value={data.name} onChange={(e) => update("name", e.target.value)} placeholder="한도윤" /></div>
+          <div className="field">
+            <label>휴대폰 <span style={{ color: "var(--rj-muted)", fontWeight: 400 }}>· 선택 (없으면 가입 이메일로 클래스인 계정이 생성됩니다)</span></label>
+            <input className="input input-lg" value={data.phone} onChange={(e) => update("phone", e.target.value)} placeholder="010-0000-0000" inputMode="tel" />
+          </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div className="field">
               <label>학년</label>

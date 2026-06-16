@@ -15,6 +15,15 @@ function PlayerPage({ courseId }) {
   const [speed, setSpeed] = useStateP(1.0);
   const [showNotes, setShowNotes] = useStateP(true);
   const [chapterIdx, setChapterIdx] = useStateP(2);
+  const [access, setAccess] = useStateP(null); // null=확인중, {canWatch, reason}
+
+  // 접근권 판정 (구독자 무료 / 구매자 / 잠금)
+  useEffectP(() => {
+    let alive = true;
+    if (!course) return;
+    window.resolveAccess(user, course).then((a) => { if (alive) setAccess(a); });
+    return () => { alive = false; };
+  }, [user, courseId]);
 
   // Fake progress ticker
   useEffectP(() => {
@@ -32,16 +41,52 @@ function PlayerPage({ courseId }) {
     );
   }
 
-  // VOD는 로그인한 수강생만 시청 가능 (교육청 실사 요건)
-  if (window.SUPABASE_ENABLED && !user) {
+  // 접근권에 따른 게이트: 로그인 필요 / 잠김(구독·구매 유도)
+  const gate = access && !access.canWatch ? access.reason : null;
+  if (gate === "need-login") {
     return (
       <div className="container" style={{ padding: "120px 0", textAlign: "center", maxWidth: 520, margin: "0 auto" }}>
         <div style={{ width: 64, height: 64, borderRadius: "50%", background: "var(--rj-ink)", color: "var(--rj-accent)", display: "inline-flex", alignItems: "center", justifyContent: "center", margin: "0 auto" }}><Icon name="lock" size={26} /></div>
-        <h2 style={{ fontFamily: "var(--font-kr-serif)", fontWeight: 500, fontSize: 30, letterSpacing: "-0.03em", margin: "22px 0 8px" }}>수강생 전용 강의입니다</h2>
-        <p style={{ color: "var(--rj-muted)", marginBottom: 26 }}>로그인 후 수강 중인 강의의 다시보기를 시청할 수 있습니다.</p>
+        <h2 style={{ fontFamily: "var(--font-kr-serif)", fontWeight: 500, fontSize: 30, letterSpacing: "-0.03em", margin: "22px 0 8px" }}>로그인이 필요합니다</h2>
+        <p style={{ color: "var(--rj-muted)", marginBottom: 26 }}>로그인 후 구독 또는 구매한 강의의 다시보기를 시청할 수 있습니다.</p>
         <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
           <button className="btn btn-primary btn-lg" onClick={() => navigate("/login")}>로그인</button>
           <button className="btn btn-ghost btn-lg" onClick={() => navigate("/courses/" + course.id)}>강의 소개</button>
+        </div>
+      </div>
+    );
+  }
+  if (gate === "locked") {
+    const won = (n) => (n / 10000) + "만원";
+    return (
+      <div className="container" style={{ padding: "96px 0", maxWidth: 720, margin: "0 auto" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ width: 64, height: 64, borderRadius: "50%", background: "var(--rj-ink)", color: "var(--rj-accent)", display: "inline-flex", alignItems: "center", justifyContent: "center", margin: "0 auto" }}><Icon name="lock" size={26} /></div>
+          <h2 style={{ fontFamily: "var(--font-kr-serif)", fontWeight: 500, fontSize: 32, letterSpacing: "-0.03em", margin: "22px 0 8px" }}>{course.title}</h2>
+          <p style={{ color: "var(--rj-muted)", marginBottom: 36 }}>이 강의의 다시보기는 구독자는 무료, 비구독자는 개별 구매 후 시청할 수 있습니다.</p>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          {/* 구독 */}
+          <div style={{ border: "2px solid var(--rj-ink)", borderRadius: 16, padding: "28px 26px", background: "var(--rj-ink)", color: "#fff", display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "var(--rj-accent)", color: "var(--rj-ink)", fontWeight: 800, fontSize: 12, padding: "5px 11px", borderRadius: 999, alignSelf: "flex-start" }}>★ 가장 인기</div>
+            <h3 style={{ fontWeight: 900, fontSize: 22, letterSpacing: "-0.03em", margin: "16px 0 4px" }}>월정액 구독</h3>
+            <p style={{ fontSize: 13.5, color: "rgba(255,255,255,0.7)", margin: 0, lineHeight: 1.6 }}>라이브 수업 + <strong style={{ color: "#fff" }}>모든 녹화본 무제한</strong> 시청</p>
+            <div style={{ fontFamily: "var(--font-en)", fontWeight: 800, fontSize: 30, margin: "18px 0 2px" }}>월 9.9<span style={{ fontSize: 16 }}>만원</span></div>
+            <button className="btn btn-accent btn-lg" style={{ marginTop: "auto" }} onClick={() => navigate("/subscribe")}>구독하고 무료로 보기</button>
+          </div>
+          {/* 낙개 구매 */}
+          <div style={{ border: "1px solid var(--rj-line)", borderRadius: 16, padding: "28px 26px", display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "var(--rj-paper-2)", color: "var(--rj-muted)", fontWeight: 800, fontSize: 12, padding: "5px 11px", borderRadius: 999, alignSelf: "flex-start" }}>단건 구매</div>
+            <h3 style={{ fontWeight: 900, fontSize: 22, letterSpacing: "-0.03em", margin: "16px 0 4px", color: "var(--rj-ink)" }}>이 강의만 구매</h3>
+            <p style={{ fontSize: 13.5, color: "var(--rj-muted)", margin: 0, lineHeight: 1.6 }}>{course.title} 녹화본 전체를 <strong style={{ color: "var(--rj-ink)" }}>평생 소장</strong></p>
+            <div style={{ fontFamily: "var(--font-en)", fontWeight: 800, fontSize: 30, margin: "18px 0 2px", color: "var(--rj-ink)" }}>{won(course.recordingPrice || 300000)}</div>
+            <button className="btn btn-primary btn-lg" style={{ marginTop: "auto" }} onClick={async () => {
+              window.demoBuyCourse(course.id);
+              const a = await window.resolveAccess(user, course); setAccess(a);
+              showToast("구매 완료 — 이제 시청할 수 있습니다");
+            }}>이 강의 구매하기</button>
+            <p style={{ fontSize: 11.5, color: "var(--rj-muted)", textAlign: "center", margin: "10px 0 0" }}>결제 연동 전 · 시연용 구매 버튼</p>
+          </div>
         </div>
       </div>
     );
@@ -71,7 +116,17 @@ function PlayerPage({ courseId }) {
           {/* Player surface */}
           <div style={{ position: "relative", background: "#0c0c0c", aspectRatio: "16 / 9" }}>
             <div className="dot-grid" style={{ position: "absolute", inset: 0, opacity: 0.12 }} />
-            {/* Fake "video" composition */}
+            {/* 실제 Vimeo 임베드 (접근 허용 + vimeoId 있을 때) */}
+            {access && access.canWatch && course.vimeoId ? (
+              <iframe
+                title={course.title}
+                src={`https://player.vimeo.com/video/${course.vimeoId}?title=0&byline=0&portrait=0`}
+                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: 0 }}
+                allow="autoplay; fullscreen; picture-in-picture"
+                allowFullScreen
+              />
+            ) : (
+            /* Fake "video" composition (vimeoId 미설정 시 데모 표시) */
             <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 18, opacity: playing ? 0.5 : 0.95, transition: "opacity .2s" }}>
               <div style={{ fontFamily: "var(--font-en)", fontSize: 12, letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(255,255,255,0.5)" }}>Now Playing</div>
               <div style={{ fontFamily: "var(--font-kr-serif)", fontSize: 36, textAlign: "center", maxWidth: 720 }}>{lessons[activeLesson].title}</div>
@@ -81,6 +136,13 @@ function PlayerPage({ courseId }) {
                 </button>
               )}
             </div>
+            )}
+            {/* 접근 허용 시 시청 배지 */}
+            {access && access.canWatch && (
+              <div style={{ position: "absolute", top: 16, left: "50%", transform: "translateX(-50%)", zIndex: 5, display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(0,0,0,0.55)", color: "#fff", fontSize: 12, fontWeight: 700, padding: "5px 12px", borderRadius: 999, backdropFilter: "blur(8px)" }}>
+                {access.reason === "subscriber" ? "✓ 구독중 — 무제한 시청" : access.reason === "purchased" ? "✓ 구매한 강의" : "무료 공개"}
+              </div>
+            )}
             {/* Top overlay */}
             <div style={{ position: "absolute", top: 16, left: 16, right: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <button className="btn btn-sm" style={{ background: "rgba(0,0,0,0.5)", color: "#fff", border: "1px solid rgba(255,255,255,0.2)", backdropFilter: "blur(8px)" }} onClick={() => navigate("/courses/" + course.id)}>

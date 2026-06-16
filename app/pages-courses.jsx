@@ -167,8 +167,10 @@ function CourseDetailPage({ courseId }) {
   return (
     <div className="page-enter">
       {/* Hero */}
-      <section style={{ background: "var(--rj-ink)", color: "var(--rj-paper)", padding: "56px 0 0" }}>
-        <div className="container-wide">
+      <section style={{ background: "var(--rj-ink)", color: "var(--rj-paper)", padding: "56px 0 0", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", inset: 0, backgroundImage: "url(assets/photos/p12.jpg)", backgroundSize: "cover", backgroundPosition: "center 28%", opacity: 0.2 }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(92deg, rgba(10,12,14,0.92) 0%, rgba(10,12,14,0.72) 60%, rgba(10,12,14,0.5) 100%)" }} />
+        <div className="container-wide" style={{ position: "relative" }}>
           <button className="btn-link" onClick={() => navigate("/courses")} style={{ color: "rgba(245,241,233,0.7)", fontSize: 13, textDecoration: "none" }}><Icon name="arrowLeft" size={14} /> 전체 강의</button>
           <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 64, marginTop: 32, alignItems: "stretch" }}>
             <div>
@@ -234,26 +236,26 @@ function CourseDetailPage({ courseId }) {
           }}>
             <div>
               <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
-                <span style={{ background: "var(--rj-accent)", color: "var(--rj-ink)", padding: "4px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700 }}>SALE 20%</span>
-                <span className="num-en" style={{ fontSize: 14, color: "var(--rj-muted)", textDecoration: "line-through" }}>{formatKRW(course.price)}</span>
-                <span className="num-en" style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-0.02em" }}>{formatKRW(course.salePrice)}</span>
+                <span style={{ background: "var(--rj-accent)", color: "var(--rj-ink)", padding: "4px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700 }}>구독 시 무료</span>
+                <span className="num-en" style={{ fontSize: 14, color: "var(--rj-muted)" }}>다시보기 단건</span>
+                <span className="num-en" style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-0.02em" }}>{formatKRW(course.recordingPrice || course.salePrice)}</span>
               </div>
-              <div style={{ fontSize: 12, color: "var(--rj-muted)", marginTop: 4 }}>일시불 또는 무이자 할부 3·6개월 가능</div>
+              <div style={{ fontSize: 12, color: "var(--rj-muted)", marginTop: 4 }}>월정액 구독자는 모든 녹화본 무료 · 비구독자는 강의별 구매</div>
             </div>
             <div style={{ fontSize: 13, color: "var(--rj-muted)", display: "flex", gap: 18, justifyContent: "center" }}>
               <span><Icon name="check" size={14} /> 라이브 + VOD</span>
               <span><Icon name="check" size={14} /> 평생 다시보기</span>
-              <span><Icon name="check" size={14} /> 첨삭 14회</span>
+              <span><Icon name="check" size={14} /> Vimeo 보안재생</span>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               {owned ? (
                 <button className="btn btn-primary btn-lg" onClick={() => navigate("/player/" + course.id)}><Icon name="play" size={16} /> 이어보기</button>
               ) : (
                 <>
-                  <button className="btn btn-ghost btn-lg" disabled={inCart} onClick={() => addToCart(course.id)}>
-                    <Icon name="cart" size={16} /> {inCart ? "담음" : "장바구니"}
+                  <button className="btn btn-ghost btn-lg" onClick={() => navigate("/subscribe")}>
+                    <Icon name="star" size={16} /> 구독하기
                   </button>
-                  <button className="btn btn-primary btn-lg" onClick={() => { addToCart(course.id); navigate("/checkout"); }}>바로 결제 <Icon name="arrow" size={16} /></button>
+                  <button className="btn btn-primary btn-lg" onClick={() => navigate("/player/" + course.id)}>다시보기 구매 <Icon name="arrow" size={16} /></button>
                 </>
               )}
             </div>

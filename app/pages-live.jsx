@@ -92,6 +92,11 @@ function PlayerPage({ courseId }) {
     );
   }
 
+  // 쇼케이스(여러 강의)가 연결된 강좌 → 쇼케이스 플레이어로
+  if (course.showcaseId) {
+    return <ShowcasePlayer course={course} ins={ins} access={access} onBack={() => navigate("/courses/" + course.id)} />;
+  }
+
   const chapters = [
     { t: "0:00", title: "오늘의 핵심 개념", endPct: 0.18 },
     { t: "8:42", title: "예제 1 — 극한의 정의 재확인", endPct: 0.34 },
@@ -299,6 +304,52 @@ function fmtTime(s) {
   const m = Math.floor(s / 60);
   const sec = Math.floor(s % 60);
   return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+}
+
+// ──────────────────────────────────────────────────────────────────
+// 쇼케이스 플레이어 — Vimeo 쇼케이스(여러 강의) 임베드
+// ──────────────────────────────────────────────────────────────────
+function ShowcasePlayer({ course, ins, access, onBack }) {
+  if (!access) {
+    return (
+      <div style={{ minHeight: "calc(100vh - 72px)", background: "#000", color: "rgba(255,255,255,0.6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>
+        불러오는 중…
+      </div>
+    );
+  }
+  const badge = access.reason === "subscriber" ? "✓ 구독중 — 무제한 시청"
+    : access.reason === "purchased" ? "✓ 수강 중인 강의"
+    : access.reason === "free" ? "무료 공개" : "시청 가능";
+  return (
+    <div className="page-enter" style={{ background: "#000", color: "var(--rj-paper)", minHeight: "calc(100vh - 72px)" }}>
+      <div style={{ maxWidth: 1180, margin: "0 auto", padding: "24px 24px 64px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 18 }}>
+          <button className="btn btn-sm" style={{ background: "rgba(255,255,255,0.08)", color: "#fff", border: "1px solid rgba(255,255,255,0.2)" }} onClick={onBack}>
+            <Icon name="arrowLeft" size={14} /> 강의 소개
+          </button>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 12, fontWeight: 700, padding: "6px 12px", borderRadius: 999 }}>{badge}</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+          <h1 style={{ fontFamily: "var(--font-kr-serif)", fontWeight: 500, fontSize: 30, letterSpacing: "-0.03em", margin: 0 }}>{course.title}</h1>
+          <span style={{ fontSize: 13.5, color: "rgba(245,241,233,0.6)" }}>{ins?.name}{course.level ? " · " + course.level : ""}</span>
+        </div>
+        <div style={{ borderRadius: 14, overflow: "hidden", border: "1px solid rgba(255,255,255,0.1)", background: "#0c0c0c" }}>
+          <iframe
+            title={course.title}
+            src={window.showcaseEmbedSrc(course.showcaseId)}
+            style={{ width: "100%", height: "74vh", minHeight: 460, border: 0, display: "block" }}
+            allow="autoplay; fullscreen; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+        <p style={{ fontSize: 12.5, color: "rgba(245,241,233,0.5)", marginTop: 14, lineHeight: 1.7 }}>
+          강의 목록·순서는 Vimeo 쇼케이스를 따릅니다 · 목록에서 강의를 선택해 이어 시청하세요.<br />
+          영상이 보이지 않으면 Vimeo 쇼케이스가 <strong style={{ color: "rgba(245,241,233,0.75)" }}>공개(또는 Hide from Vimeo)</strong>이고, 영상 임베드가 <strong style={{ color: "rgba(245,241,233,0.75)" }}>이 사이트 도메인에서 허용</strong>되어 있는지 확인하세요 ·{" "}
+          <a href={window.showcaseUrl(course.showcaseId)} target="_blank" rel="noreferrer" style={{ color: "var(--rj-accent)", fontWeight: 700 }}>Vimeo에서 열기 →</a>
+        </p>
+      </div>
+    </div>
+  );
 }
 
 // ──────────────────────────────────────────────────────────────────

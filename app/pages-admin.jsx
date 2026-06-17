@@ -7,6 +7,7 @@ const { useState: useStA } = React;
 const ADMIN_TABS = [
   ["status",  "연동 상태",      "Connection"],
   ["reports", "성적표",         "Report Cards"],
+  ["vod",     "강의 관리",      "VOD"],
   ["users",   "계정 관리",      "User"],
   ["classes", "코스 · 수업",    "Classroom"],
   ["subs",    "데이터 구독",    "Data Subscription"],
@@ -130,6 +131,9 @@ function AdminPage() {
             <StudentManager isAdmin={isAdmin} onOpenReports={() => setTab("reports")} />
           </div>
         )}
+
+        {/* ── 강의(VOD) 관리 ── */}
+        {tab === "vod" && window.VodManager && <window.VodManager />}
 
         {/* ── Classroom management ── */}
         {tab === "classes" && (

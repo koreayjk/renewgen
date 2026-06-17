@@ -290,6 +290,28 @@ const POSTER_VARIANTS = {
 function CoursePoster({ course, size = "md", onClick }) {
   const ins = findInstructor(course.instructor);
   const subj = findSubject(course.subject);
+  if (course.thumb) {
+    return (
+      <button onClick={onClick} className={POSTER_VARIANTS[course.color] || "poster"} style={{ width: "100%", height: "100%", minHeight: 240, textAlign: "left", cursor: "pointer", position: "relative", overflow: "hidden" }}>
+        <img src={course.thumb} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", zIndex: 0 }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.86), rgba(0,0,0,0.08) 62%)", zIndex: 1 }} />
+        <div style={{ position: "relative", zIndex: 2, display: "flex", flexDirection: "column", justifyContent: "space-between", height: "100%", color: "#fff" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div className="label-cap" style={{ opacity: 0.85 }}>No. {course.no} / {subj?.en || ""}</div>
+            {course.badge && <span className="tag" style={{ borderColor: "currentColor" }}>{course.badge}</span>}
+          </div>
+          <div>
+            <div className="poster-title">{course.title}</div>
+            {course.subtitle && <div style={{ fontFamily: "var(--font-en)", fontStyle: "italic", fontWeight: 300, fontSize: 14, opacity: 0.8, marginTop: 4 }}>{course.subtitle}</div>}
+            <div style={{ marginTop: 14, display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, opacity: 0.9 }}>
+              <span>{ins?.name || ""}{course.level ? " · " + course.level : ""}</span>
+              {course.rating ? <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><Icon name="star" size={11} /> {course.rating}</span> : <span />}
+            </div>
+          </div>
+        </div>
+      </button>
+    );
+  }
   return (
     <button onClick={onClick} className={POSTER_VARIANTS[course.color]} style={{ width: "100%", textAlign: "left", cursor: "pointer" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>

@@ -513,9 +513,67 @@ function useReportPrint(store, comments) {
 }
 
 // ── 관리자: 성적표 매니저 ─────────────────────────────────────────
-function ReportManager() {
+function ReportManager({ viewOnly = false } = {}) {
   const [store, setStore] = useStR(() => RJReport.loadStore());
   const [comments, setComments] = useStR(() => rcLoadComments());
+  // ── Supabase 동기화 상태
+  const [cloudState, setCloudState] = useStR("checking"); // 'checking'|'cloud'|'local'|'pushing'
+  const [cloudMsg, setCloudMsg] = useStR("");
+  // 페이지 로드 시 클라우드 → 로컬 교체
+  useEffectR(() => {
+    let alive = true;
+    (async () => {
+      if (!window.rjSyncReportsFromCloud) { if (alive) setCloudState("local"); return; }
+      const r = await window.rjSyncReportsFromCloud();
+      if (!alive) return;
+      if (r && r.ok && r.available) {
+        setStore(RJReport.loadStore());
+        setComments(rcLoadComments());
+        setCloudState("cloud");
+      } else {
+        setCloudState("local");
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
+  // 변경 사항을 클라우드로 보내는 헬퍼들 (fire-and-forget — UI 차단 없이)
+  const pushRound = (round) => {
+    if (viewOnly) return;
+    if (window.rjPushRoundToCloud) window.rjPushRoundToCloud(round).catch(() => {});
+  };
+  const deleteCloud = (id) => {
+    if (viewOnly) return;
+    if (window.rjDeleteRoundFromCloud) window.rjDeleteRoundFromCloud(id).catch(() => {});
+  };
+  const pushComment = (rId, sk, txt) => {
+    if (viewOnly) return;
+    if (window.rjPushCommentToCloud) window.rjPushCommentToCloud(rId, sk, txt).catch(() => {});
+  };
+  // 수동 동기화 (다시 받기)
+  const cloudSync = async () => {
+    if (!window.rjSyncReportsFromCloud) return;
+    setCloudState("checking"); setCloudMsg("");
+    const r = await window.rjSyncReportsFromCloud();
+    if (r && r.ok && r.available) {
+      setStore(RJReport.loadStore()); setComments(rcLoadComments()); setCloudState("cloud");
+      showToast(`클라우드에서 ${r.roundsLoaded}개 회차 · 코멘트 ${r.commentsLoaded}건을 불러왔습니다`);
+    } else {
+      setCloudState("local"); showToast("클라우드 연결 실패 — 로컬 데이터로 동작합니다");
+    }
+  };
+  // 로컬 → 클라우드 백업 (최초 이관용)
+  const cloudBackup = async () => {
+    if (!window.rjBackupLocalToCloud) return;
+    if (!confirm("이 브라우저의 성적표 데이터를 클라우드에 업로드할까요?\n(기존 클라우드 데이터가 덮어쓰여질 수 있습니다.)")) return;
+    setCloudState("pushing");
+    const r = await window.rjBackupLocalToCloud();
+    if (r && r.ok && r.available) {
+      setCloudState("cloud");
+      showToast(`클라우드에 회차 ${r.roundsPushed}개 · 코멘트 ${r.commentsPushed}건을 업로드했습니다${r.roundsFailed ? ` (실패 ${r.roundsFailed})` : ""}`);
+    } else {
+      setCloudState("local"); showToast("클라우드 연결 실패 — 업로드하지 못했습니다");
+    }
+  };
   const rounds = RJReport.sortedRounds(store);
   const [roundId, setRoundId] = useStR(() => (rounds[rounds.length - 1] || {}).id || null);
   const [selKey, setSelKey] = useStR(null);
@@ -548,6 +606,7 @@ function ReportManager() {
     if (!pending.length) return;
     const r = RJReport.buildRound(pending.map((p) => ({ name: p.name, text: p.text })), roundLabel, { seq: Date.now() });
     RJReport.addRound(r);
+    pushRound(r);
     setPending([]);
     const s = reload();
     setRoundId(r.id);
@@ -559,7 +618,7 @@ function ReportManager() {
   const pullFromClassIn = async () => {
     if (syncing) return;
     setSyncing(true);
-    const finish = (r, msg) => { if (r) { RJReport.addRound(r); reload(); setRoundId(r.id); setSelKey(null); } if (msg) showToast(msg); setSyncing(false); };
+    const finish = (r, msg) => { if (r) { RJReport.addRound(r); pushRound(r); reload(); setRoundId(r.id); setSelKey(null); } if (msg) showToast(msg); setSyncing(false); };
     try {
       const rows = await RJReport.fetchClassInScores({ cmd: "AnswerSheetScore" });
       if (!rows.length) { showToast("클래스인에서 불러올 새 성적이 없습니다"); setSyncing(false); return; }
@@ -570,17 +629,18 @@ function ReportManager() {
       if (confirm("클래스인 백엔드(scores.php)에 연결할 수 없습니다.\n\n실서버에서는 hook.php 가 받은 OMR 답안카드 성적을 그대로 불러옵니다.\n지금은 자동 동기화 결과를 '미리보기'로 생성해 볼까요?")) {
         const rows = RJReport.simulateClassInRows(RJReport.sortedRounds(RJReport.loadStore()).length);
         const r = RJReport.buildRoundFromClassIn(rows, roundLabel + " · 동기화 미리보기", { seq: Date.now() });
-        RJReport.addRound(r); reload(); setRoundId(r.id); setSelKey(null);
+        RJReport.addRound(r); pushRound(r); reload(); setRoundId(r.id); setSelKey(null);
       }
     }
   };
-  const wipe = () => { if (confirm("저장된 모든 회차 데이터를 삭제할까요?")) { RJReport.clearStore(); rcSaveComments({}); setComments({}); reload(); setRoundId(null); setSelKey(null); } };
-  const delRound = (id) => { if (confirm("이 회차를 삭제할까요?")) { RJReport.removeRound(id); const s = reload(); const rr = RJReport.sortedRounds(s); setRoundId((rr[rr.length - 1] || {}).id || null); setSelKey(null); } };
+  const wipe = () => { if (confirm("​저장된 모든 회차 데이터를 삭제할까요?\n· 클라우드와 로컬 모두 삭제됩니다.")) { RJReport.clearStore(); rcSaveComments({}); setComments({}); reload(); setRoundId(null); setSelKey(null); if (!viewOnly && window.rjWipeAllRoundsFromCloud) window.rjWipeAllRoundsFromCloud().catch(()=>{}); } };
+  const delRound = (id) => { if (confirm("이 회차를 삭제할까요?")) { RJReport.removeRound(id); deleteCloud(id); const s = reload(); const rr = RJReport.sortedRounds(s); setRoundId((rr[rr.length - 1] || {}).id || null); setSelKey(null); } };
 
   const setComment = (key, txt) => {
     const ck = round.id + "|" + key;
     const next = { ...comments, [ck]: txt };
     setComments(next); rcSaveComments(next);
+    pushComment(round.id, key, txt);
   };
   const setScore = (key, subject, newScore) => {
     if (!round) return;
@@ -590,6 +650,7 @@ function ReportManager() {
     else { st.subjects[subject].score = newScore; st.subjects[subject].attempted = newScore != null; }
     rcRecomputeRound(round);
     RJReport.saveStore(store);
+    pushRound(round);
     setStore({ ...store });
   };
 
@@ -605,7 +666,23 @@ function ReportManager() {
   return (
     <div>
       {area}
-      {/* 업로드 */}
+      {/* 클라우드 동기화 상태 — 어떤 컴퓨터·브라우저에서 로그인해도 같은 데이터가 보이는지 표시 */}
+      <div className="no-print" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 14, padding: "10px 14px", borderRadius: 10, background: cloudState === "cloud" ? "rgba(31,138,91,0.06)" : "var(--ci-bg)", border: "1px solid " + (cloudState === "cloud" ? "rgba(31,138,91,0.25)" : "var(--ci-line)"), fontSize: 12.5 }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "var(--ci-ink)", fontWeight: 600 }}>
+          {cloudState === "checking" && <><Icon name="refresh" size={12} /> 클라우드 확인 중…</>}
+          {cloudState === "cloud" && <><span style={{ width: 7, height: 7, borderRadius: "50%", background: "#1F8A5B", flexShrink: 0 }} /> 클라우드 동기화됨 — 어떤 컴퓨터에서 로그인해도 같은 데이터가 보입니다</>}
+          {cloudState === "local" && <><span style={{ width: 7, height: 7, borderRadius: "50%", background: "#C0392B", flexShrink: 0 }} /> 로컬 전용 — 이 브라우저에만 저장됩니다 (다른 컴퓨터에선 안 보임)</>}
+          {cloudState === "pushing" && <><Icon name="refresh" size={12} /> 클라우드에 업로드 중…</>}
+        </span>
+        {!viewOnly && (
+          <div style={{ display: "flex", gap: 6 }}>
+            <button className="ci-act sm" onClick={cloudSync} title="클라우드에서 최신 데이터 다시 받기"><Icon name="refresh" size={11} /> 다시 받기</button>
+            <button className="ci-act sm navy" onClick={cloudBackup} title="이 브라우저 데이터를 클라우드에 올리기"><Icon name="upload" size={11} /> 클라우드에 백업</button>
+          </div>
+        )}
+      </div>
+      {/* 업로드 · 관리자만 */}
+      {!viewOnly && (
       <div className="ci-card ci-card-pad no-print" style={{ marginBottom: 18 }}>
         <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 20 }}>
           <div>
@@ -661,11 +738,12 @@ function ReportManager() {
           </div>
         </div>
       </div>
+      )}
 
       {!round ? (
         <div className="ci-card ci-card-pad no-print" style={{ textAlign: "center", padding: "56px 24px", color: "var(--ci-muted)" }}>
           <Icon name="folder" size={28} />
-          <p style={{ marginTop: 12, fontWeight: 700 }}>아직 저장된 회차가 없습니다. 클래스인 성적 CSV를 업로드하거나 ‘클래스인 자동 동기화’를 눌러주세요.</p>
+          <p style={{ marginTop: 12, fontWeight: 700 }}>{viewOnly ? "관리자가 발행한 성적표가 아직 없습니다." : "아직 저장된 회차가 없습니다. 클래스인 성적 CSV를 업로드하거나 ‘클래스인 자동 동기화’를 눌러주세요."}</p>
         </div>
       ) : (
         <>
@@ -679,7 +757,7 @@ function ReportManager() {
               ))}
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <button className="ci-act" onClick={() => delRound(round.id)}><Icon name="trash" size={12} /> 회차 삭제</button>
+              {!viewOnly && <button className="ci-act" onClick={() => delRound(round.id)}><Icon name="trash" size={12} /> 회차 삭제</button>}
               <button className="ci-act navy" onClick={() => print(round.id, filtered.map((s) => s.key))}>
                 <Icon name="pdf" size={13} /> 전체 {filtered.length}명 PDF
               </button>
@@ -728,8 +806,8 @@ function ReportManager() {
                     <button className="ci-act navy" onClick={() => print(round.id, [selKey])}><Icon name="download" size={13} /> 이 학생 PDF 저장</button>
                   </div>
                   <StudentReportCard round={round} store={store} studentKey={selKey}
-                    comment={comments[round.id + "|" + selKey]} onComment={(t) => setComment(selKey, t)}
-                    onScoreChange={(sub, sc) => setScore(selKey, sub, sc)} editable={true} />
+                    comment={comments[round.id + "|" + selKey]} onComment={viewOnly ? undefined : (t) => setComment(selKey, t)}
+                    onScoreChange={viewOnly ? undefined : (sub, sc) => setScore(selKey, sub, sc)} editable={!viewOnly} />
                 </>
               ) : (
                 <div className="ci-card ci-card-pad" style={{ textAlign: "center", padding: "64px 24px", color: "var(--ci-muted)" }}>학생을 선택하세요.</div>
@@ -744,14 +822,25 @@ function ReportManager() {
 
 // ── 학생 본인 성적표 (마이페이지) ─────────────────────────────────
 function ReportSelfView({ userName }) {
-  const [store] = useStR(() => RJReport.loadStore());
-  const [comments] = useStR(() => rcLoadComments());
+  const [store, setStore] = useStR(() => RJReport.loadStore());
+  const [comments, setComments] = useStR(() => rcLoadComments());
+  // 학생도 클라우드에서 자기 성적표를 본다 (RLS: 읽기는 모든 로그인 사용자 허용)
+  useEffectR(() => {
+    let alive = true;
+    (async () => {
+      if (!window.rjSyncReportsFromCloud) return;
+      const r = await window.rjSyncReportsFromCloud();
+      if (!alive || !(r && r.ok && r.available)) return;
+      setStore(RJReport.loadStore());
+      setComments(rcLoadComments());
+    })();
+    return () => { alive = false; };
+  }, []);
   const rounds = RJReport.sortedRounds(store);
   const [roundId, setRoundId] = useStR(() => (rounds[rounds.length - 1] || {}).id || null);
   const round = rounds.find((r) => r.id === roundId) || rounds[rounds.length - 1] || null;
   const roster = round ? RJReport.rosterOf(round) : [];
   const auto = roster.find((s) => s.name === userName);
-  const [selKey, setSelKey] = useStR(auto ? auto.key : (roster[0] ? roster[0].key : null));
   const { print, area } = useReportPrint(store, comments);
 
   if (!round) {
@@ -765,28 +854,34 @@ function ReportSelfView({ userName }) {
       </div>
     );
   }
+  if (!auto) {
+    return (
+      <div>
+        <CiHead title="월말평가 성적표" api="Report Card" sub="내 성적표" />
+        <div className="ci-card ci-card-pad" style={{ textAlign: "center", padding: "56px 24px", color: "var(--ci-muted)" }}>
+          <Icon name="folder" size={28} />
+          <p style={{ marginTop: 12, fontWeight: 700 }}>아직 이번 회차에 등록된 내 성적이 없습니다.</p>
+          <p style={{ fontSize: 12.5, marginTop: 6 }}>월말평가 응시 후 관리자가 등록하면 여기에서 확인할 수 있습니다.</p>
+        </div>
+      </div>
+    );
+  }
   return (
     <div>
       {area}
       <CiHead title="월말평가 성적표" api="Report Card"
         sub="회차별 성적과 추이를 확인하고 PDF로 저장하세요"
-        action={selKey && <button className="ci-act navy" onClick={() => print(round.id, [selKey])}><Icon name="download" size={13} /> PDF 저장</button>} />
+        action={<button className="ci-act navy" onClick={() => print(round.id, [auto.key])}><Icon name="download" size={13} /> PDF 저장</button>} />
       <div className="no-print" style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 14 }}>
         <div className="ci-subtabs">
           {rounds.map((r) => (
-            <button key={r.id} className={"ci-subtab" + (r.id === roundId ? " active" : "")} onClick={() => setRoundId(r.id)}>{RJReport.shortLabel(r.label)}</button>
+            <button key={r.id} className={"ci-subtab" + (r.id === roundId ? " active" : "")} onClick={() => { setRoundId(r.id); }}>{RJReport.shortLabel(r.label)}</button>
           ))}
         </div>
-        {!auto && (
-          <select value={selKey || ""} onChange={(e) => setSelKey(e.target.value)}
-            style={{ height: 36, borderRadius: 8, border: "1px solid var(--ci-line)", padding: "0 12px", fontSize: 13, fontFamily: "var(--font-kr)", marginLeft: "auto" }}>
-            {roster.map((s) => <option key={s.key} value={s.key}>{s.name} {s.org ? "(" + s.org + ")" : ""}{s.level && s.level !== "기타" ? " · " + s.level : ""}</option>)}
-          </select>
-        )}
       </div>
-      {selKey && round.students[selKey]
-        ? <StudentReportCard round={round} store={store} studentKey={selKey} comment={comments[round.id + "|" + selKey]} editable={false} />
-        : <div className="ci-card ci-card-pad" style={{ textAlign: "center", padding: 48, color: "var(--ci-muted)" }}>표시할 성적표가 없습니다.</div>}
+      {round.students[auto.key]
+        ? <StudentReportCard round={round} store={store} studentKey={auto.key} comment={comments[round.id + "|" + auto.key]} editable={false} />
+        : <div className="ci-card ci-card-pad" style={{ textAlign: "center", padding: 48, color: "var(--ci-muted)" }}>이 회차에는 내 성적이 등록되지 않았습니다.</div>}
     </div>
   );
 }

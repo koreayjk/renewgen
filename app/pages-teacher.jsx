@@ -12,6 +12,7 @@ const TEACH_TABS = [
   ["attend",    "출결 관리",    "Attendance"],
   ["students",  "학생 관리",    "Students"],
   ["exam",      "시험 출제",     "Exam"],
+  ["grades",    "성적표",       "Report Cards"],
   ["reports",   "수업 리포트",  "Reports"],
 ];
 
@@ -69,6 +70,7 @@ function TeacherPage() {
         {tab === "attend" && <TeacherAttendance roster={roster} />}
         {tab === "students" && <TeacherStudents roster={roster} />}
         {tab === "exam" && (window.ExamManager ? <window.ExamManager /> : null)}
+        {tab === "grades" && (window.ReportManager ? <window.ReportManager viewOnly={true} /> : null)}
         {tab === "reports" && (window.ReportsPanel ? <window.ReportsPanel /> : null)}
       </div>
     </div>

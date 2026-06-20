@@ -122,6 +122,7 @@ function AppProvider({ children, initialTweaks }) {
   const logout = async () => {
     const sb = window.getSupabase && window.getSupabase();
     if (sb) { try { await sb.auth.signOut(); } catch (e) {} }
+    try { sessionStorage.removeItem("rj-auto-routed"); } catch (e) {}
     setUser(null);
     showToast("로그아웃 되었습니다");
   };
@@ -132,12 +133,50 @@ function AppProvider({ children, initialTweaks }) {
     if (!sb) return;
     sb.auth.getSession().then(({ data }) => {
       if (data && data.session) setUser(window.mapSbUser(data.session.user));
+    }).catch((e) => {
+      // 만료된 refresh token 등 → 잘못된 세션을 비워 콘솔 에러 방지
+      try { sb.auth.signOut(); } catch (_) {}
     });
     const { data: sub } = sb.auth.onAuthStateChange((_evt, session) => {
       setUser(session ? window.mapSbUser(session.user) : null);
     });
     return () => { try { sub.subscription.unsubscribe(); } catch (e) {} };
   }, []);
+
+  // 현재 로그인 사용자를 전역에 노출 + 시험 데이터 Supabase 동기화(있을 때)
+  useEffect(() => {
+    window.RJ_CURRENT_USER = user || null;
+    if (user && window.pullExamData) { window.pullExamData(user).catch(() => {}); }
+  }, [user]);
+
+  // 로그인 사용자의 profiles.role 을 한 번 불러와 user 에 병합 (역할 기반 권한의 실서버 소스)
+  useEffect(() => {
+    if (!user || !user.id || user.profileRole !== undefined) return;
+    if (!window.fetchProfileRole) return;
+    window.fetchProfileRole(user.id).then((role) => {
+      setUser((prev) => {
+        if (!prev || prev.id !== user.id) return prev;
+        const pr = role || "student";
+        return { ...prev, profileRole: pr, role: window.getUserRole({ email: prev.email, profileRole: pr }) };
+      });
+    });
+  }, [user]);
+
+  // 세션 복원/로그인 후, 관리자·강사면 자동으로 콘솔로 (탭 세션당 1회 — '학생 화면 보기'는 방해 안 함)
+  useEffect(() => {
+    if (!user) return;
+    const emailLow = (user.email || "").toLowerCase();
+    const fixedAdmin = window.RJ_ADMIN_EMAILS && window.RJ_ADMIN_EMAILS.includes(emailLow);
+    const roleKnown = fixedAdmin || user.profileRole !== undefined;  // 역할 확정될 때까지 대기
+    if (!roleKnown) return;
+    try { if (sessionStorage.getItem("rj-auto-routed")) return; } catch (e) {}
+    try { sessionStorage.setItem("rj-auto-routed", "1"); } catch (e) {}
+    if (window.isStaff && window.isStaff(user)) {
+      const h = window.location.hash || "";
+      const neutral = h === "" || h === "#/" || h === "#/mypage" || h.indexOf("#/mypage?") === 0 || h.indexOf("#/login") === 0 || h.indexOf("#/signup") === 0;
+      if (neutral) navigate(window.isAdmin && window.isAdmin(user) ? "/admin" : "/teacher");
+    }
+  }, [user]);
 
   // 실제 로그인 (Supabase). 미설정 시 데모 로그인으로 폴백.
   const signIn = async (email, password) => {
@@ -152,16 +191,18 @@ function AppProvider({ children, initialTweaks }) {
   };
 
   // 실제 회원가입 (Supabase). 프로필 테이블에도 저장.
-  const signUp = async ({ email, password, name, grade, school, subject }) => {
+  const signUp = async ({ email, password, name, grade, school, subject, age, phone, role }) => {
     const sb = window.getSupabase && window.getSupabase();
     if (!sb) { login(email, name, (name || "GU").slice(-2)); return { ok: true, demo: true }; }
+    const meta = { name, grade, school, subject, age: age || null, phone: phone || null, role: role || "student" };
     const { data, error } = await sb.auth.signUp({
       email, password,
-      options: { data: { name, grade, school, subject } },
+      options: { data: meta },
     });
     if (error) return { ok: false, error: error.message };
     if (data.user) {
-      try { await sb.from("profiles").upsert({ id: data.user.id, email, name, grade, school, subject }); } catch (e) {}
+      // role 은 보안상 가입 시 서버 트리거가 'student' 로 강제 — 선생님 승급은 관리자가 처리
+      try { await sb.from("profiles").upsert({ id: data.user.id, email, name, grade, school, subject, age: age ? Number(age) : null, phone: phone || null }); } catch (e) {}
     }
     if (data.session) { setUser(window.mapSbUser(data.user)); return { ok: true }; }
     return { ok: true, needsConfirm: true }; // 이메일 확인이 켜져 있을 때
@@ -198,14 +239,34 @@ const NAV = [
 
 function SiteHeader() {
   const { route, navigate, cart, user } = useApp();
+  // 회원 영역(학습 대시보드·관리자 콘솔·플레이어 등)에서는 마케팅 네비를 감추고
+  // 로고만 있는 슬림 헤더로 — 페이지 자체 헤더(대시보드 히어로)가 따로 있기 때문.
+  const p = route.path || "";
+  const memberArea = p.startsWith("/mypage") || p.startsWith("/admin") || p.startsWith("/teacher") || p.startsWith("/player") || p.startsWith("/weblive") || (p.startsWith("/live/") && p.split("/").length > 2);
+
+  if (memberArea) {
+    return (
+      <header className="site-header">
+        <div className="container-wide site-header-inner" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <a href="#/" className="brand-wordmark brand-wordmark--logo" onClick={(e) => { e.preventDefault(); navigate("/"); }}>
+            <img src="assets/logo-full.png" alt="리뉴젠 아카데미 · Re:newgen Academy" className="brand-logo-full" />
+          </a>
+          <div className="header-actions">
+            {user && <button className="icon-btn" onClick={() => navigate("/mypage")} aria-label="학습 대시보드">
+              <span className="avatar avatar-sm" style={{ background: "var(--rj-ink)", color: "var(--rj-paper)" }}>{user.initials}</span>
+            </button>}
+          </div>
+        </div>
+      </header>
+    );
+  }
+
   return (
     <header className="site-header">
       <div className="container-wide site-header-inner">
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <a href="#/" className="brand-wordmark" onClick={(e) => { e.preventDefault(); navigate("/"); }} style={{ alignItems: "center" }}>
-            <img src="assets/logo-mark.png" alt="" className="brand-logo-mark" />
-            리뉴젠 아카데미
-            <span className="en">Re:newgen</span>
+          <a href="#/" className="brand-wordmark brand-wordmark--logo" onClick={(e) => { e.preventDefault(); navigate("/"); }}>
+            <img src="assets/logo-full.png" alt="리뉴젠 아카데미 · Re:newgen Academy" className="brand-logo-full" />
           </a>
         </div>
         <nav className="main-nav">

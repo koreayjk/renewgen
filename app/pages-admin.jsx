@@ -8,6 +8,8 @@ const ADMIN_TABS = [
   ["status",  "연동 상태",      "Connection"],
   ["reports", "성적표",         "Report Cards"],
   ["vod",     "강의 관리",      "VOD"],
+  ["homework","과제 관리",      "Homework"],
+  ["exam",    "시험 관리",      "Exam"],
   ["users",   "계정 관리",      "User"],
   ["classes", "코스 · 수업",    "Classroom"],
   ["subs",    "데이터 구독",    "Data Subscription"],
@@ -18,6 +20,23 @@ function AdminPage() {
   const isAdmin = !!(window.isAdmin && window.isAdmin(user));
   const [tab, setTab] = useStA("status");
   const [roleFilter, setRoleFilter] = useStA("all");
+
+  // 역할 가드 — 실제 로그인(Supabase) 환경에서 학생이 콘솔에 직접 접근하면 학습 대시보드로 돌려보냄
+  React.useEffect(() => {
+    if (!window.SUPABASE_ENABLED) return;          // 데모 모드에서는 자유 탐색 허용
+    if (!user) { navigate("/login"); return; }
+    if (window.isStaff && !window.isStaff(user)) navigate("/mypage");
+  }, [user]);
+  if (window.SUPABASE_ENABLED && user && window.isStaff && !window.isStaff(user)) {
+    return (
+      <div className="page-enter container" style={{ paddingTop: 96, paddingBottom: 120, maxWidth: 520, textAlign: "center" }}>
+        <div style={{ width: 64, height: 64, borderRadius: "50%", background: "var(--ci-navy)", color: "var(--ci-yellow)", display: "inline-flex", alignItems: "center", justifyContent: "center", margin: "0 auto" }}><Icon name="lock" size={28} /></div>
+        <h1 style={{ fontFamily: "var(--font-kr-serif)", fontWeight: 500, fontSize: 30, letterSpacing: "-0.03em", margin: "24px 0 8px" }}>관리자 전용 페이지입니다</h1>
+        <p style={{ color: "var(--rj-muted)", fontSize: 15, marginBottom: 28 }}>이 영역은 강사·관리자만 접근할 수 있습니다.</p>
+        <button className="btn btn-primary btn-lg" onClick={() => navigate("/mypage")}>학습 대시보드로</button>
+      </div>
+    );
+  }
 
   const accounts = ADMIN_ACCOUNTS.filter((a) => roleFilter === "all" || a.role === roleFilter);
   const teachers = ADMIN_ACCOUNTS.filter((a) => a.role === "teacher");
@@ -45,7 +64,8 @@ function AdminPage() {
               <h1 style={{ fontWeight: 900, fontSize: 32, letterSpacing: "-0.04em", margin: "8px 0 0" }}>계정 · 코스 · 데이터 연동 관리</h1>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <button className="ci-act" style={{ height: 40 }} onClick={() => navigate("/mypage")}><Icon name="user" size={14} /> 학습 대시보드</button>
+              <button className="ci-act" style={{ height: 40 }} onClick={() => navigate("/teacher")}><Icon name="users" size={14} /> 선생님 대시보드</button>
+              <button className="ci-act" style={{ height: 40 }} onClick={() => navigate("/mypage")}><Icon name="user" size={14} /> 학생 화면 보기</button>
               <button className="ci-act" style={{ height: 40 }} onClick={() => navigate("/weblive")}><Icon name="signal" size={14} /> 공개방송</button>
             </div>
           </div>
@@ -134,6 +154,12 @@ function AdminPage() {
 
         {/* ── 강의(VOD) 관리 ── */}
         {tab === "vod" && window.VodManager && <window.VodManager />}
+
+        {/* ── 과제 관리 (Classroom · Homework) ── */}
+        {tab === "homework" && window.HomeworkManager && <window.HomeworkManager />}
+
+        {/* ── 시험 관리 (Renewjen Exam) ── */}
+        {tab === "exam" && window.ExamManager && <window.ExamManager />}
 
         {/* ── Classroom management ── */}
         {tab === "classes" && (
@@ -244,16 +270,43 @@ function RoleManager({ me }) {
   const [email, setEmail] = useStA("");
   const [role, setRole] = useStA("teacher");
   const [grants, setGrants] = useStA(() => (window.listRoleGrants ? window.listRoleGrants() : []));
+  const [members, setMembers] = useStA(null);   // null=로딩전, []=없음/미연동
+  const [loadingM, setLoadingM] = useStA(false);
   const refresh = () => setGrants(window.listRoleGrants ? window.listRoleGrants() : []);
 
+  const loadMembers = React.useCallback(() => {
+    if (!window.SUPABASE_ENABLED || !window.fetchAllProfiles) { setMembers([]); return; }
+    setLoadingM(true);
+    window.fetchAllProfiles().then((r) => { setMembers(r.ok ? r.rows : []); setLoadingM(false); });
+  }, []);
+  React.useEffect(() => { loadMembers(); }, [loadMembers]);
+
   const roleKo = (r) => (r === "admin" ? "관리자" : r === "teacher" ? "강사" : "학생");
-  const grant = () => {
+  const grant = async () => {
     const e = email.trim().toLowerCase();
     if (!e || !/.+@.+\..+/.test(e)) { showToast("올바른 이메일을 입력하세요"); return; }
     window.setUserRole(e, role); refresh(); setEmail("");
+    if (window.SUPABASE_ENABLED && window.setProfileRoleByEmail) {
+      const r = await window.setProfileRoleByEmail(e, role);
+      if (!r.ok) { showToast(r.notFound ? `${e} 회원을 찾을 수 없습니다 (로컬만 적용 — 가입 후 다시 시도)` : "DB 반영 실패 (로컬만 적용)"); return; }
+      loadMembers();
+    }
     showToast(`${e} → ${roleKo(role)} 권한 부여`);
   };
-  const revoke = (e) => { window.setUserRole(e, "student"); refresh(); showToast(`${e} 권한 해제 (학생으로)`); };
+  const revoke = async (e) => {
+    window.setUserRole(e, "student"); refresh();
+    if (window.SUPABASE_ENABLED && window.setProfileRoleByEmail) { await window.setProfileRoleByEmail(e, "student"); loadMembers(); }
+    showToast(`${e} 권한 해제 (학생으로)`);
+  };
+  // 회원 목록에서 직접 역할 변경
+  const setMemberRole = async (m, newRole) => {
+    if (window.RJ_ADMIN_EMAILS && window.RJ_ADMIN_EMAILS.includes((m.email || "").toLowerCase())) { showToast("고정 관리자는 변경할 수 없습니다"); return; }
+    const res = window.setProfileRoleById ? await window.setProfileRoleById(m.id, newRole) : { ok: false };
+    if (m.email) window.setUserRole(m.email.toLowerCase(), newRole);
+    refresh();
+    if (res.ok) { showToast(`${m.name || m.email} → ${roleKo(newRole)}`); loadMembers(); }
+    else showToast("변경 실패 — 권한(관리자)·DB 연결을 확인하세요");
+  };
 
   return (
     <div className="ci-card ci-card-pad" style={{ marginBottom: 18 }}>
@@ -288,6 +341,52 @@ function RoleManager({ me }) {
           </tbody>
         </table>
       </div>
+
+      {/* 실제 가입 회원 — Supabase profiles */}
+      <div style={{ marginTop: 22 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <h4 style={{ margin: 0, fontWeight: 900, fontSize: 15 }}>가입 회원 <span style={{ color: "var(--ci-muted)", fontWeight: 600, fontSize: 13 }}>· {members ? members.length + "명" : "…"}</span></h4>
+          <button className="ci-act sm" onClick={loadMembers}><Icon name="refresh" size={11} /> 새로고침</button>
+        </div>
+        {!window.SUPABASE_ENABLED
+          ? <div style={{ color: "var(--ci-muted)", fontSize: 13, padding: "8px 0" }}>미리보기(데모) 모드에서는 실제 가입자가 표시되지 않습니다. 실제 사이트에서 로그인하면 가입 회원이 모두 나타납니다.</div>
+          : loadingM
+            ? <div style={{ color: "var(--ci-muted)", fontSize: 13, padding: "8px 0" }}>불러오는 중…</div>
+            : (!members || members.length === 0)
+              ? <div style={{ color: "var(--ci-muted)", fontSize: 13, padding: "8px 0" }}>가입한 회원이 없습니다. (또는 관리자 권한이 없어 목록을 볼 수 없습니다 — <span className="ci-mono">db/supabase-extra.sql</span> 실행 여부 확인)</div>
+              : (
+                <div className="ci-card" style={{ overflow: "hidden" }}>
+                  <div style={{ overflowX: "auto" }}>
+                    <table className="ci-table">
+                      <thead><tr><th>이름</th><th>이메일</th><th>구분</th><th style={{ textAlign: "right" }}>권한 설정</th></tr></thead>
+                      <tbody>
+                        {members.map((m) => {
+                          const fixed = window.RJ_ADMIN_EMAILS && window.RJ_ADMIN_EMAILS.includes((m.email || "").toLowerCase());
+                          const curRole = fixed ? "admin" : (m.role || "student");
+                          return (
+                            <tr key={m.id}>
+                              <td><strong style={{ fontWeight: 700 }}>{m.name || "—"}</strong>{m.grade ? <span style={{ color: "var(--ci-muted)", marginLeft: 6, fontSize: 12 }}>{m.grade}</span> : null}</td>
+                              <td className="ci-mono" style={{ fontSize: 12.5 }}>{m.email}{me && me.email && me.email.toLowerCase() === (m.email || "").toLowerCase() && <span className="ci-badge neutral" style={{ marginLeft: 6 }}>나</span>}</td>
+                              <td><span className={"ci-badge " + (curRole === "admin" ? "bad" : curRole === "teacher" ? "navy" : "neutral")}>{roleKo(curRole)}</span></td>
+                              <td style={{ textAlign: "right" }}>
+                                {fixed
+                                  ? <span style={{ fontSize: 12, color: "var(--ci-muted)" }}>고정 관리자</span>
+                                  : <select value={curRole} onChange={(e) => setMemberRole(m, e.target.value)}
+                                      style={{ height: 32, borderRadius: 7, border: "1px solid var(--ci-line)", padding: "0 8px", fontSize: 13, fontWeight: 700 }}>
+                                      <option value="student">학생</option>
+                                      <option value="teacher">강사</option>
+                                      <option value="admin">관리자</option>
+                                    </select>}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+      </div>
     </div>
   );
 }
@@ -311,6 +410,22 @@ function stuList() {
   return merged;
 }
 function stuPatch(uid, patch) { const ov = stuLoadOv(); ov[uid] = { ...(ov[uid] || {}), ...patch }; stuSaveOv(ov); }
+// 로그인 이메일로 명부의 학생 레코드를 찾는다 (접근권 판정용 — access.jsx 에서 사용)
+function rjFindStudentByEmail(email) {
+  const e = (email || "").trim().toLowerCase();
+  if (!e) return null;
+  return stuList().find((s) => (s.email || "").trim().toLowerCase() === e) || null;
+}
+window.rjFindStudentByEmail = rjFindStudentByEmail;
+// 학생 명부에 존재하는 '학년·반' 목록 (강의 무료대상 반 선택 드롭다운용)
+//  실서버에서는 클래스인 API 로 받은 반 목록을 여기에 병합하면 됩니다.
+function rjClassNames() {
+  const set = new Set();
+  stuList().forEach((s) => { const l = (s.label || "").trim(); if (l) set.add(l); });
+  try { (JSON.parse(localStorage.getItem("rj-classin-classes") || "[]") || []).forEach((c) => { const n = (typeof c === "string" ? c : (c && c.name)) || ""; if (n.trim()) set.add(n.trim()); }); } catch (e) {}
+  return Array.from(set).sort((a, b) => a.localeCompare(b, "ko"));
+}
+window.rjClassNames = rjClassNames;
 function stuAdd(s) {
   const ov = stuLoadOv();
   const uid = s.uid || ("RJ" + String(Date.now()).slice(-8));

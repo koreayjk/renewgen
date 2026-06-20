@@ -43,6 +43,12 @@ body {
 }
 
 button, input, select, textarea { font-family: inherit; color: inherit; }
+
+/* 한국어 줄바꿈 — 어절(단어)이 중간에서 잘리지 않게 (예: '검정고시'가 '검정/고시'로 쪼개지는 현상 방지) */
+p, h1, h2, h3, h4, h5, h6, li, blockquote, figcaption, dd, dt, .body-lg {
+  word-break: keep-all;
+  text-wrap: pretty;
+}
 button { background: none; border: 0; padding: 0; cursor: pointer; }
 a { color: inherit; text-decoration: none; }
 img { display: block; max-width: 100%; }

@@ -15,20 +15,283 @@ function rcSaveComments(c) { try { localStorage.setItem(RC_COMMENTS_KEY, JSON.st
 const rcInitials = (nm) => (nm || "").slice(0, 2);
 const rcSubColor = (id) => (RJReport.SUBJECTS.find((s) => s.id === id) || {}).color || "#5C6678";
 
+// ── 자동 코멘트 — 반 평균 대비 / 과목별 강·약점 / 회차 추이 / 약점 코칭 / 마무리
+// 학생마다 점수·추이·반 위치가 달라서 자연스럽게 내용이 갈리도록 설계.
+function _rcHash(s) { let h = 0; for (const c of String(s || "")) h = (h * 31 + c.charCodeAt(0)) | 0; return Math.abs(h); }
+function _rcPick(arr, seed) { return arr[_rcHash(seed) % arr.length]; }
+const RC_COACH = {
+  "국어": [
+    "비문학 지문 1편을 매일 시간 재서 풀고, 주제·근거를 직접 표시하는 습관을 권합니다.",
+    "선지 분석 노트를 만들어 ‘왜 그 답이 맞는가’를 한 줄로 쓰는 연습이 효과적입니다.",
+    "어휘·접속어 정리로 약한 단원부터 채워나가면 점수 회복이 빠릅니다.",
+  ],
+  "영어": [
+    "구문 분석은 매일 단문 5개로 줄여 패턴을 익히는 게 흔들리지 않습니다.",
+    "어휘는 회독수보다 출제 빈도순으로 좁혀 집중하세요.",
+    "지문 유형별로 시간 분배를 정해놓고 푸는 훈련이 도움이 됩니다.",
+  ],
+  "수학": [
+    "기본 유형 일일 5문제 루틴으로 감각을 잃지 않게 해 주세요.",
+    "오답노트에 ‘어디서 막혔는가’를 한 줄로 적는 것만으로도 같은 실수가 줄어듭니다.",
+    "고난도보다 기본·중간 난도 정확도를 먼저 끌어올리는 게 효율적입니다.",
+  ],
+  "사회": [
+    "주요 개념을 표·도표로 묶어 비교 학습하면 흐름이 잡힙니다.",
+    "기출문제로 출제 패턴을 익혀 자주 출제되는 주제를 우선 학습하세요.",
+  ],
+  "과학": [
+    "개념 정리와 그래프·도표 해석 연습을 동시에 진행하는 게 효율적입니다.",
+    "탐구 문항은 자료 해석이 핵심이라, 도표·그래프 문제 비중을 높여 보세요.",
+  ],
+};
+function _rcCoach(subj) {
+  return RC_COACH[subj] || [
+    "취약 단원을 1주일 단위로 끊어 점검해 보세요.",
+    "오답 정리만 꾸준히 해도 같은 유형 실수를 크게 줄일 수 있습니다.",
+  ];
+}
+
 // 자동 코멘트 (관리자가 비워두면 점수 기반 기본 문구)
-function rcAutoComment(st, delta) {
+//  ctx: { name, trend, roundLabel }  — 가능한 한 채워 주면 더 구체적인 문장이 됩니다.
+function rcAutoComment(st, delta, ctx) {
   const subs = Object.entries(st.subjects).filter(([, v]) => v.score != null);
-  if (!subs.length) return "이번 회차 응시 기록이 없습니다.";
+  if (!subs.length) return "이번 회차 응시 기록이 없습니다. 다음 회차는 가능한 한 모든 과목을 응시하도록 지도가 필요합니다.";
+  const name = (ctx && ctx.name) || st.name || "학생";
+  const seed = name + "|" + ((ctx && ctx.roundLabel) || "");
+
   const sorted = subs.slice().sort((a, b) => b[1].score - a[1].score);
   const best = sorted[0], weak = sorted[sorted.length - 1];
-  let s = `${best[0]} 과목이 ${best[1].score}점으로 가장 안정적입니다.`;
-  if (weak[0] !== best[0]) s += ` ${weak[0]}(${weak[1].score}점)은 다음 회차 집중 보완을 권합니다.`;
-  if (delta != null) {
-    if (delta > 1.5) s += ` 전월 대비 평균이 ${delta.toFixed(1)}점 상승했습니다. 좋은 흐름을 이어가세요.`;
-    else if (delta < -1.5) s += ` 전월 대비 평균이 ${Math.abs(delta).toFixed(1)}점 하락했습니다. 학습 리듬을 점검해봅시다.`;
-    else s += ` 전월 대비 평균을 안정적으로 유지하고 있습니다.`;
+  const [bSub, bV] = best, [wSub, wV] = weak;
+  const gap = bV.score - wV.score;
+  const avg = st.avg, cAvg = st.cohortAvg, cN = st.cohortN, rank = st.rankOverall;
+
+  // 1) 도입 — 반 평균 대비 위치
+  let opening = "";
+  if (avg != null && cAvg != null) {
+    const diff = Math.round((avg - cAvg) * 10) / 10;
+    if (diff >= 8) opening = _rcPick([
+      `${name}는 이번 회차 평균 ${avg}점으로 반 평균(${cAvg})을 ${diff}점 상회하며 상위권 자리를 안정적으로 지키고 있습니다.`,
+      `평균 ${avg}점, 반 평균 대비 +${diff}점으로 ${cN}명 중 ${rank ? rank + "등 " : ""}상위 흐름이 단단합니다.`,
+    ], seed);
+    else if (diff >= 2) opening = _rcPick([
+      `이번 회차 평균은 ${avg}점으로 반 평균(${cAvg})보다 ${diff}점 높은 무난한 결과입니다.`,
+      `${name}는 평균 ${avg}점으로 반 평균(${cAvg})을 살짝 웃돌며, 한 과목만 더 다듬으면 상위권 도약이 가능한 위치입니다.`,
+    ], seed);
+    else if (diff > -2) opening = _rcPick([
+      `평균 ${avg}점으로 반 평균(${cAvg})에 거의 일치합니다. 약점 한두 과목만 보완하면 상위권으로 올라설 수 있는 자리입니다.`,
+      `평균 ${avg}점으로 반 평균에 근접합니다. 균형은 잘 잡혀 있어 ‘무엇을 더 채우느냐’가 다음 과제입니다.`,
+    ], seed);
+    else if (diff > -8) opening = `평균 ${avg}점으로 반 평균(${cAvg}) 대비 ${Math.abs(diff)}점 아래입니다. 약점 과목 보완이 시급한 시점입니다.`;
+    else opening = `평균 ${avg}점은 반 평균(${cAvg}) 대비 ${Math.abs(diff)}점 낮은 결과입니다. 진도보다 기본기 점검과 학습 루틴의 재정비가 우선되어야 합니다.`;
+  } else if (avg != null) {
+    opening = `${name}는 이번 회차 평균 ${avg}점을 기록했습니다.`;
+  } else {
+    opening = `${name}의 이번 회차 결과를 다음과 같이 정리했습니다.`;
   }
-  return s;
+
+  // 2) 강점
+  let strength = "";
+  if (bV.classAvg != null && bV.score - bV.classAvg >= 5) {
+    strength = ` 특히 ${bSub}(${bV.score}점)는 반 평균(${bV.classAvg}) 대비 +${Math.round((bV.score - bV.classAvg) * 10) / 10}점으로 ${name}의 가장 단단한 영역입니다.`;
+  } else if (bV.score >= 90) {
+    strength = ` ${bSub}(${bV.score}점)은 안정적인 최상위권으로, 자신감의 출발점이 될 수 있는 과목입니다.`;
+  } else if (bV.score >= 80) {
+    strength = ` ${bSub}(${bV.score}점)이 가장 안정적이며, 다른 과목으로 확장할 수 있는 발판이 됩니다.`;
+  } else {
+    strength = ` 가장 높은 점수는 ${bSub}(${bV.score}점)인데, 우선 이 과목부터 80점대 안착이 다음 목표입니다.`;
+  }
+
+  // 3) 약점 / 균형
+  let weakness = "";
+  if (bSub !== wSub) {
+    if (wV.classAvg != null && wV.classAvg - wV.score >= 5) {
+      weakness = ` 반면 ${wSub}(${wV.score}점)는 반 평균(${wV.classAvg}) 대비 -${Math.round((wV.classAvg - wV.score) * 10) / 10}점으로, 다음 회차까지 가장 먼저 손볼 영역입니다.`;
+    } else if (wV.score < 60) {
+      weakness = ` ${wSub}(${wV.score}점)는 기본 점수대 회복이 우선이며, 어려운 문제보다 정답 빈도 높은 유형부터 점검할 것을 권합니다.`;
+    } else if (gap >= 20) {
+      weakness = ` ${wSub}(${wV.score}점)과의 격차가 ${gap}점으로, 과목 간 균형이 다음 회차 과제입니다.`;
+    } else {
+      weakness = ` ${wSub}(${wV.score}점)도 평균 수준은 지켜내고 있어 큰 무리는 없습니다.`;
+    }
+  }
+
+  // 4) 추이 (3회차 이상이면 패턴 진단)
+  let trendNote = "";
+  const trend = ctx && ctx.trend;
+  if (Array.isArray(trend) && trend.length >= 3) {
+    const avgs = trend.map((t) => t.avg).filter((x) => x != null);
+    if (avgs.length >= 3) {
+      const last3 = avgs.slice(-3);
+      const swing = Math.max(...last3) - Math.min(...last3);
+      if (last3[2] > last3[1] && last3[1] > last3[0]) trendNote = ` 최근 3회차 ${last3.join(" → ")}점으로 꾸준한 상승 흐름이며, 이 리듬을 끊지 않는 것이 관건입니다.`;
+      else if (last3[2] < last3[1] && last3[1] < last3[0]) trendNote = ` 최근 3회차 ${last3.join(" → ")}점으로 하락 추세입니다. 학습 컨디션과 일정 점검이 시급합니다.`;
+      else if (swing >= 10) trendNote = ` 최근 3회차 변동폭이 ${swing}점으로 다소 큰 편입니다. 안정적 점수대를 만드는 것이 다음 단계입니다.`;
+      else trendNote = ` 최근 3회차 ${last3.join("·")}점으로 변동이 작아 학습 루틴이 잘 잡혀 있다는 신호입니다.`;
+    }
+  } else if (delta != null) {
+    if (delta > 1.5) trendNote = ` 전월 대비 평균이 ${delta.toFixed(1)}점 상승했습니다.`;
+    else if (delta < -1.5) trendNote = ` 전월 대비 평균이 ${Math.abs(delta).toFixed(1)}점 하락해 흐름 점검이 필요합니다.`;
+    else trendNote = ` 전월 대비 평균을 안정적으로 유지하고 있습니다.`;
+  }
+
+  // 5) 약점 과목 코칭
+  let coaching = "";
+  if (bSub !== wSub) {
+    const tip = _rcPick(_rcCoach(wSub), seed + wSub);
+    coaching = ` 다음 회차까지 ${wSub} 영역은 ${tip}`;
+  }
+
+  // 6) 마무리 (반 평균 대비 톤)
+  let closing = "";
+  if (avg != null && cAvg != null) {
+    const diff = avg - cAvg;
+    if (diff >= 8) closing = " 지금의 흐름을 유지하면서 과목 간 균형을 다듬어 가면 됩니다.";
+    else if (diff >= -2) closing = " 약점 한 과목만 잡아도 평균 도약이 가시화되는 단계입니다.";
+    else closing = " 무리한 진도보다 매주 2~3과목 집중 보완으로 회복 루틴을 만들어 봅시다.";
+  }
+
+  return opening + strength + weakness + trendNote + coaching + closing;
+}
+
+// ── AI(Claude) 코멘트 — 학생 한 명의 데이터를 받아 자연스러운 담임 총평 한 단락 생성
+function rcBuildAIPrompt(st, ctx) {
+  const subs = Object.entries(st.subjects).filter(([, v]) => v.score != null);
+  const subjLines = subs.map(([sub, v]) => `  - ${sub}: ${v.score}점 (반 평균 ${v.classAvg != null ? v.classAvg : "-"}, ${v.classN || 0}명 중 ${v.rank || "-"}등)`).join("\n");
+  const trendLines = ((ctx && ctx.trend) || []).map((t) => {
+    const tsubs = Object.entries(t.subjects || {}).filter(([, sc]) => sc != null).map(([sub, sc]) => `${sub} ${sc}`).join(", ");
+    return `  - ${t.shortLabel || t.label}: 평균 ${t.avg != null ? t.avg : "-"}점${tsubs ? " (" + tsubs + ")" : ""}`;
+  }).join("\n");
+  return `당신은 한국 학원의 담임 선생님입니다. 아래 월말평가 데이터를 보고, 학부모님과 학생이 함께 읽는 성적표의 ‘담임 총평’을 한국어로 작성하세요.
+
+[학생]
+- 이름: ${(ctx && ctx.name) || st.name || "(이름 미상)"}
+- 학년/반: ${st.level || "-"}
+- 회차: ${(ctx && ctx.roundLabel) || "-"}
+
+[이번 회차 점수]
+${subjLines}
+- 본인 평균: ${st.avg != null ? st.avg : "-"}점 / 반 평균: ${st.cohortAvg != null ? st.cohortAvg : "-"}점 / 동급 ${st.cohortN || 0}명 중 ${st.rankOverall || "-"}등
+
+[회차별 추이]
+${trendLines || "  - (이전 회차 기록 없음)"}
+
+[작성 원칙]
+1. "꾸준히 노력", "좋은 흐름을 이어가세요" 같은 누구에게나 쓸 만한 빈말 금지.
+2. 구체 점수·과목·추이를 인용해 강점과 약점을 짚을 것.
+3. 다음 회차까지 학생이 실제로 실행할 행동지침을 한 가지 명확히 제시.
+4. 학부모님이 읽어도 안심되도록 사실에 근거해 따뜻하게.
+5. 분량은 한국어 3~5문장. 인사말·머리말·따옴표·이모지 없이 본문만 출력.`;
+}
+async function rcGenerateAIComment(st, ctx) {
+  if (!(window.claude && typeof window.claude.complete === "function")) {
+    throw new Error("AI 코멘트는 배포 환경에서만 사용할 수 있습니다.");
+  }
+  const txt = await window.claude.complete(rcBuildAIPrompt(st, ctx));
+  return String(txt || "").trim();
+}
+
+// 회차 통계 재계산 — 학생/과목 평균·랭크, 동급 평균·등수까지
+function rcRecomputeRound(round) {
+  for (const k in round.students) {
+    const st = round.students[k];
+    const scores = Object.values(st.subjects).map((x) => x.score).filter((x) => x != null);
+    st.taken = scores.length;
+    st.total = scores.length ? scores.reduce((a, b) => a + b, 0) : null;
+    st.avg = scores.length ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10 : null;
+  }
+  const subjects = new Set();
+  for (const k in round.students) for (const sub in round.students[k].subjects) subjects.add(sub);
+  for (const sub of subjects) {
+    const entries = [];
+    for (const k in round.students) {
+      const sd = round.students[k].subjects[sub];
+      if (sd && sd.score != null) entries.push({ key: k, score: sd.score });
+    }
+    const avg = entries.length ? entries.reduce((a, b) => a + b.score, 0) / entries.length : 0;
+    const sorted = [...entries].sort((a, b) => b.score - a.score);
+    for (const k in round.students) {
+      const sd = round.students[k].subjects[sub];
+      if (!sd) continue;
+      sd.classAvg = Math.round(avg * 10) / 10;
+      sd.classN = entries.length;
+      sd.rank = sd.score != null ? sorted.findIndex((t) => t.key === k) + 1 : null;
+    }
+  }
+  const byLevel = {};
+  for (const k in round.students) {
+    const st = round.students[k];
+    (byLevel[st.level] = byLevel[st.level] || []).push({ key: k, st });
+  }
+  for (const lv in byLevel) {
+    const cohort = byLevel[lv].filter((x) => x.st.avg != null).sort((a, b) => b.st.avg - a.st.avg);
+    byLevel[lv].forEach((x) => {
+      x.st.cohortN = cohort.length;
+      x.st.cohortAvg = cohort.length ? Math.round((cohort.reduce((a, b) => a + b.st.avg, 0) / cohort.length) * 10) / 10 : null;
+      x.st.rankOverall = x.st.avg != null ? cohort.findIndex((c) => c.key === x.key) + 1 : null;
+    });
+  }
+}
+
+// 점수 직접 수정 — 비어 있는 과목 칸을 채우거나 기존 점수를 고친다
+function RCScoreEditor({ st, onScoreChange }) {
+  const subs = Object.entries(st.subjects).sort((a, b) => a[0].localeCompare(b[0], "ko"));
+  if (!subs.length) return null;
+  const set = (sub, raw) => {
+    const v = String(raw).trim();
+    const n = v === "" ? null : Number(v);
+    if (n != null && (Number.isNaN(n) || n < 0)) return;
+    onScoreChange(sub, n);
+  };
+  return (
+    <details className="no-print" style={{ margin: "16px 0 0", border: "1px dashed var(--ci-line)", borderRadius: 10, background: "var(--ci-bg)" }}>
+      <summary style={{ padding: "12px 16px", fontSize: 12.5, fontWeight: 800, color: "var(--ci-navy)", cursor: "pointer", listStyle: "none", display: "flex", alignItems: "center", gap: 8 }}>
+        <Icon name="edit" size={13} /> 점수 직접 수정 — {subs.length}과목 (비어 있는 칸 채우기·점수 수정)
+      </summary>
+      <div style={{ padding: "8px 16px 16px", display: "grid", gap: 6 }}>
+        {subs.map(([sub, v]) => (
+          <div key={sub} style={{ display: "grid", gridTemplateColumns: "1fr 90px 50px", gap: 10, alignItems: "center" }}>
+            <span style={{ fontSize: 13 }}>{sub}</span>
+            <input type="number" defaultValue={v.score != null ? v.score : ""} min="0" max={v.max || 100} step="0.1" placeholder="—"
+              onBlur={(e) => set(sub, e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+              style={{ height: 32, borderRadius: 6, border: "1px solid var(--ci-line)", padding: "0 10px", fontFamily: "var(--font-en)", fontSize: 13, textAlign: "right", background: "#fff" }} />
+            <span style={{ fontSize: 11.5, color: "var(--ci-muted)", fontFamily: "var(--font-en)" }}>/ {v.max || 100}</span>
+          </div>
+        ))}
+        <p style={{ fontSize: 11.5, color: "var(--ci-muted)", margin: "6px 0 0", lineHeight: 1.6 }}>
+          빈칸으로 두면 ‘미응시’로 처리됩니다 · 입력 후 다른 칸 클릭 또는 Enter 로 저장 · 저장하면 평균·랭크가 즉시 재계산됩니다.
+        </p>
+      </div>
+    </details>
+  );
+}
+
+// AI 코멘트 생성 버튼 — 담임 총평 옆에 표시
+function RCAiButton({ st, ctx, onComment }) {
+  const [busy, setBusy] = useStR(false);
+  const [err, setErr] = useStR("");
+  const available = !!(window.claude && typeof window.claude.complete === "function");
+  const gen = async () => {
+    if (!onComment) return;
+    setBusy(true); setErr("");
+    try {
+      const txt = await rcGenerateAIComment(st, ctx);
+      if (txt) onComment(txt);
+      else setErr("응답이 비어 있습니다");
+    } catch (e) { setErr(String((e && e.message) || e)); }
+    setBusy(false);
+  };
+  if (!available) {
+    return <span style={{ fontSize: 10.5, color: "var(--ci-muted)", fontWeight: 700 }} title="배포 환경(window.claude.complete)에서만 사용 가능">AI 생성 · 배포 후</span>;
+  }
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+      {err && <span style={{ fontSize: 10.5, color: "var(--ci-bad)" }} title={err}>실패 · 재시도</span>}
+      <button type="button" className="ci-act" style={{ height: 28, padding: "0 10px", fontSize: 11.5 }} onClick={gen} disabled={busy}>
+        <Icon name="sparkle" size={11} /> {busy ? "AI 작성 중…" : "AI 코멘트 생성"}
+      </button>
+    </span>
+  );
 }
 
 // ── 회차별 색상 (막대그래프) ───────────────────────────────────────
@@ -100,7 +363,7 @@ function RJSubjectBars({ subjects, rounds }) {
 }
 
 // ── 성적표 시트 (한 페이지) ───────────────────────────────────────
-function StudentReportCard({ round, store, studentKey, comment, onComment, editable }) {
+function StudentReportCard({ round, store, studentKey, comment, onComment, editable, onScoreChange }) {
   const st = round.students[studentKey];
   if (!st) return null;
   const levelSubs = (round.subjectsByLevel[st.level] || RJReport.SUBJECTS.map((s) => s.id));
@@ -115,7 +378,7 @@ function StudentReportCard({ round, store, studentKey, comment, onComment, edita
   const prevAvg = trend.length >= 2 ? trend[trend.length - 2].avg : null;
   const delta = prevAvg != null && st.avg != null ? Math.round((st.avg - prevAvg) * 10) / 10 : null;
 
-  const cText = (comment != null && comment !== "") ? comment : rcAutoComment(st, delta);
+  const cText = (comment != null && comment !== "") ? comment : rcAutoComment(st, delta, { name: st.name, trend, roundLabel: round.label });
   const showLevel = st.level && st.level !== "기타";
   const issueDate = rcFmtDate(round.createdAt);
   const barRounds = trend.map((t) => ({ label: t.shortLabel + " 월말평가", scores: t.subjects }));
@@ -124,11 +387,7 @@ function StudentReportCard({ round, store, studentKey, comment, onComment, edita
     <div className="rc-sheet">
       <div className="rc-sheet-head">
         <div className="rc-brand">
-          <span className="mark">R</span>
-          <div className="rc-brand-tx">
-            <div className="nm">리뉴젠 아카데미</div>
-            <div className="en">Re:newgen Academy</div>
-          </div>
+          <img src="assets/logo-full.png" alt="리뉴젠 아카데미 · Re:newgen Academy" className="rc-brand-logo" />
         </div>
         <div className="rc-head-meta">
           <div className="t">{round.label}</div>
@@ -198,10 +457,15 @@ function StudentReportCard({ round, store, studentKey, comment, onComment, edita
         </div>
       </div>
 
+      {editable && onScoreChange && <RCScoreEditor st={st} onScoreChange={onScoreChange} />}
+
       <div className="rc-comment">
-        <div className="lab"><Icon name="edit" size={13} /> 담임 총평 · Comment</div>
+        <div className="lab" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+          <span><Icon name="edit" size={13} /> 담임 총평 · Comment</span>
+          {editable && <RCAiButton st={st} ctx={{ name: st.name, trend, roundLabel: round.label }} onComment={onComment} />}
+        </div>
         {editable ? (
-          <textarea value={comment != null ? comment : ""} placeholder={rcAutoComment(st, delta)}
+          <textarea value={comment != null ? comment : ""} placeholder={rcAutoComment(st, delta, { name: st.name, trend, roundLabel: round.label })}
             onChange={(e) => onComment && onComment(e.target.value)} />
         ) : (
           <div className="printed">{cText}</div>
@@ -318,6 +582,16 @@ function ReportManager() {
     const next = { ...comments, [ck]: txt };
     setComments(next); rcSaveComments(next);
   };
+  const setScore = (key, subject, newScore) => {
+    if (!round) return;
+    const st = round.students[key];
+    if (!st) return;
+    if (!st.subjects[subject]) st.subjects[subject] = { score: newScore, max: 100, pct: null, level: st.level, attempted: newScore != null };
+    else { st.subjects[subject].score = newScore; st.subjects[subject].attempted = newScore != null; }
+    rcRecomputeRound(round);
+    RJReport.saveStore(store);
+    setStore({ ...store });
+  };
 
   const roster = round ? RJReport.rosterOf(round) : [];
   const levels = round ? Object.keys(round.subjectsByLevel) : [];
@@ -377,7 +651,6 @@ function ReportManager() {
               <Icon name={syncing ? "sparkle" : "refresh"} size={14} /> {syncing ? "불러오는 중…" : "클래스인에서 자동으로 불러오기"}
             </button>
             <div style={{ display: "flex", gap: 8 }}>
-              <button className="ci-act" style={{ flex: 1, justifyContent: "center" }} onClick={loadDemo}><Icon name="sparkle" size={13} /> 데모 데이터</button>
               <button className="ci-act" style={{ flex: 1, justifyContent: "center" }} onClick={wipe}><Icon name="trash" size={13} /> 전체 초기화</button>
             </div>
             <p style={{ fontSize: 11.5, color: "var(--ci-muted)", lineHeight: 1.6, margin: 0 }}>
@@ -392,7 +665,7 @@ function ReportManager() {
       {!round ? (
         <div className="ci-card ci-card-pad no-print" style={{ textAlign: "center", padding: "56px 24px", color: "var(--ci-muted)" }}>
           <Icon name="folder" size={28} />
-          <p style={{ marginTop: 12, fontWeight: 700 }}>아직 저장된 회차가 없습니다. CSV를 업로드하거나 데모 데이터를 불러오세요.</p>
+          <p style={{ marginTop: 12, fontWeight: 700 }}>아직 저장된 회차가 없습니다. 클래스인 성적 CSV를 업로드하거나 ‘클래스인 자동 동기화’를 눌러주세요.</p>
         </div>
       ) : (
         <>
@@ -455,7 +728,8 @@ function ReportManager() {
                     <button className="ci-act navy" onClick={() => print(round.id, [selKey])}><Icon name="download" size={13} /> 이 학생 PDF 저장</button>
                   </div>
                   <StudentReportCard round={round} store={store} studentKey={selKey}
-                    comment={comments[round.id + "|" + selKey]} onComment={(t) => setComment(selKey, t)} editable={true} />
+                    comment={comments[round.id + "|" + selKey]} onComment={(t) => setComment(selKey, t)}
+                    onScoreChange={(sub, sc) => setScore(selKey, sub, sc)} editable={true} />
                 </>
               ) : (
                 <div className="ci-card ci-card-pad" style={{ textAlign: "center", padding: "64px 24px", color: "var(--ci-muted)" }}>학생을 선택하세요.</div>

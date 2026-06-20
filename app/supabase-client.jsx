@@ -48,10 +48,12 @@ function _saveRoleStore(s) { try { localStorage.setItem("rj-roles", JSON.stringi
 
 function getUserRole(u) {
   const e = _emailOf(u);
+  if (e && RJ_ADMIN_EMAILS.includes(e)) return "admin";    // 고정 관리자 최우선
+  // Supabase profiles.role (서버 진실) — 로그인 후 하이드레이트됨
+  if (u && typeof u === "object" && u.profileRole && RJ_ROLE_RANK[u.profileRole] != null) return u.profileRole;
   if (!e) return "student";
-  if (RJ_ADMIN_EMAILS.includes(e)) return "admin";        // 고정 관리자 최우선
   const ov = _roleStore()[e];
-  if (ov && RJ_ROLE_RANK[ov] != null) return ov;          // 콘솔에서 부여한 역할
+  if (ov && RJ_ROLE_RANK[ov] != null) return ov;          // 콘솔에서 부여한 역할(로컬 폴백)
   if (u && typeof u === "object" && u.metaRole && RJ_ROLE_RANK[u.metaRole] != null) return u.metaRole;
   return "student";
 }
@@ -73,10 +75,72 @@ function listRoleGrants() {
 function isStaff(u) { return RJ_ROLE_RANK[getUserRole(u)] >= 1; }   // teacher or admin
 function isAdmin(u) { return getUserRole(u) === "admin"; }
 
-Object.assign(window, { getUserRole, setUserRole, listRoleGrants, isStaff, isAdmin, RJ_ADMIN_EMAILS });
+// profiles.role 조회 (로그인 후 역할 하이드레이트·로그인 라우팅용)
+async function fetchProfileRole(id) {
+  const sb = getSupabase(); if (!sb || !id) return null;
+  try { const { data } = await sb.from("profiles").select("role").eq("id", id).maybeSingle(); return data ? data.role : null; } catch (e) { return null; }
+}
+async function fetchProfileRoleByEmail(email) {
+  const sb = getSupabase(); const e = (email || "").trim().toLowerCase(); if (!sb || !e) return null;
+  try { const { data } = await sb.from("profiles").select("role").eq("email", e).maybeSingle(); return data ? data.role : null; } catch (err) { return null; }
+}
+// 관리자: 회원 역할 변경 → profiles.role 업데이트 (admin RLS 필요)
+async function setProfileRoleByEmail(email, role) {
+  const sb = getSupabase(); const e = (email || "").trim().toLowerCase();
+  if (!sb || !e || RJ_ROLE_RANK[role] == null) return { ok: false };
+  try { const { data, error } = await sb.from("profiles").update({ role }).eq("email", e).select("id"); if (error) return { ok: false, error: error.message }; return { ok: (data && data.length > 0), notFound: !(data && data.length > 0) }; }
+  catch (err) { return { ok: false, error: String(err) }; }
+}
+
+// 관리자: 전체 가입 회원 목록 (profiles) — 강사/관리자만 조회 가능(RLS)
+async function fetchAllProfiles() {
+  const sb = getSupabase(); if (!sb) return { ok: false, rows: [] };
+  try {
+    const { data, error } = await sb.from("profiles").select("id, email, name, role, grade, school, subject, created_at").order("created_at", { ascending: false });
+    if (error) return { ok: false, rows: [], error: error.message };
+    return { ok: true, rows: data || [] };
+  } catch (e) { return { ok: false, rows: [], error: String(e) }; }
+}
+// id 기준 역할 변경(가장 정확 — 이메일 동명 방지)
+async function setProfileRoleById(id, role) {
+  const sb = getSupabase(); if (!sb || !id || RJ_ROLE_RANK[role] == null) return { ok: false };
+  try { const { error } = await sb.from("profiles").update({ role }).eq("id", id); return error ? { ok: false, error: error.message } : { ok: true }; }
+  catch (e) { return { ok: false, error: String(e) }; }
+}
+
+Object.assign(window, { getUserRole, setUserRole, listRoleGrants, isStaff, isAdmin, RJ_ADMIN_EMAILS, fetchProfileRole, fetchProfileRoleByEmail, setProfileRoleByEmail, fetchAllProfiles, setProfileRoleById });
 
 window.getSupabase = getSupabase;
 window.mapSbUser = mapSbUser;
+
+// ── 내 프로필 조회/수정 (계정 설정) ─────────────────────────────────
+window.fetchMyProfile = async function (id) {
+  const sb = getSupabase(); if (!sb || !id) return null;
+  try {
+    const { data } = await sb.from("profiles").select("name, phone, gender, age, grade, school, subject").eq("id", id).maybeSingle();
+    return data || null;
+  } catch (e) { return null; }
+};
+// 본인 프로필 수정 (이메일 제외) — profiles_update_own RLS 로 보호됨
+window.updateMyProfile = async function (id, patch) {
+  const sb = getSupabase();
+  if (!sb || !id) return { ok: true, demo: true };   // 데모: 저장 없이 성공 처리
+  try {
+    let { error } = await sb.from("profiles").update(patch).eq("id", id);
+    // age/gender/phone 컬럼이 아직 없으면(스키마 미적용) → 기본 컬럼만이라도 저장
+    if (error && /column/i.test(error.message || "")) {
+      const safe = { name: patch.name, grade: patch.grade, school: patch.school };
+      const retry = await sb.from("profiles").update(safe).eq("id", id);
+      try { await sb.auth.updateUser({ data: { ...patch } }); } catch (e) {}
+      if (retry.error) return { ok: false, error: retry.error.message };
+      return { ok: true, partial: true };   // 일부만 저장됨(스키마 보강 필요)
+    }
+    if (error) return { ok: false, error: error.message };
+    try { await sb.auth.updateUser({ data: { name: patch.name, phone: patch.phone, gender: patch.gender, age: patch.age, grade: patch.grade, school: patch.school } }); } catch (e) {}
+    return { ok: true };
+  } catch (e) { return { ok: false, error: String(e) }; }
+};
+
 
 // ── 구글 OAuth 로그인 ───────────────────────────────────────────────
 // Supabase 대시보드 → Authentication → Providers → Google 를 켜야 작동합니다.

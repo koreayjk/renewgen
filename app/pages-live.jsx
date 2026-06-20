@@ -125,7 +125,7 @@ function PlayerPage({ courseId }) {
             {access && access.canWatch && course.vimeoId ? (
               <iframe
                 title={course.title}
-                src={`https://player.vimeo.com/video/${course.vimeoId}?title=0&byline=0&portrait=0`}
+                src={window.videoEmbedSrc(course.vimeoId, course.vimeoHash)}
                 style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: 0 }}
                 allow="autoplay; fullscreen; picture-in-picture"
                 allowFullScreen
@@ -145,7 +145,7 @@ function PlayerPage({ courseId }) {
             {/* 접근 허용 시 시청 배지 */}
             {access && access.canWatch && (
               <div style={{ position: "absolute", top: 16, left: "50%", transform: "translateX(-50%)", zIndex: 5, display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(0,0,0,0.55)", color: "#fff", fontSize: 12, fontWeight: 700, padding: "5px 12px", borderRadius: 999, backdropFilter: "blur(8px)" }}>
-                {access.reason === "subscriber" ? "✓ 구독중 — 무제한 시청" : access.reason === "purchased" ? "✓ 구매한 강의" : "무료 공개"}
+                {access.reason === "subscriber" ? "✓ 구독중 — 무제한 시청" : access.reason === "purchased" ? "✓ 구매한 강의" : access.reason === "enrolled" ? "✓ 수강생 무료 다시보기" : access.reason === "staff" ? "관리자 미리보기" : "무료 공개"}
               </div>
             )}
             {/* Top overlay */}
@@ -319,6 +319,8 @@ function ShowcasePlayer({ course, ins, access, onBack }) {
   }
   const badge = access.reason === "subscriber" ? "✓ 구독중 — 무제한 시청"
     : access.reason === "purchased" ? "✓ 수강 중인 강의"
+    : access.reason === "enrolled" ? "✓ 수강생 무료 다시보기"
+    : access.reason === "staff" ? "관리자 미리보기"
     : access.reason === "free" ? "무료 공개" : "시청 가능";
   return (
     <div className="page-enter" style={{ background: "#000", color: "var(--rj-paper)", minHeight: "calc(100vh - 72px)" }}>

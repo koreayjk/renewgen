@@ -1,0 +1,7 @@
+# config.php 와 logs 폴더는 외부에서 절대 접근 못 하게 차단
+<FilesMatch "^(config|config\.sample)\.php$">
+    Require all denied
+</FilesMatch>
+
+# lib/, db/, logs/ 직접 접근 차단 (api/ 만 외부 호출 허용)
+RedirectMatch 403 ^/classin/(lib|db|logs)/.*$

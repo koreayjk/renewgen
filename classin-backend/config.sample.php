@@ -28,6 +28,12 @@ return [
     // 예: 'https://renewgen.cafe24.com'
     'SITE_ORIGIN' => 'https://renewgen.com',
 
+    // ⚠️ 토스페이먼츠 결제위젯 '시크릿 키'(gsk) — 절대 외부 노출 금지.
+    //   개발자센터 → 결제위젯 연동 키에서 확인. 클라이언트 키(gck)와 한 세트여야 함.
+    //   테스트: test_gsk_…  /  라이브: live_gsk_…
+    //   (미설정 시 toss-confirm.php 가 문서용 테스트 시크릿키로 폴백)
+    'TOSS_SECRET_KEY' => 'test_gsk_docs_2GNmP0vBQ85qBwz5rmZ8VEojaPQB',
+
     // MySQL (카페24에서 발급받은 DB 정보)
     'DB' => [
         'host' => 'localhost',

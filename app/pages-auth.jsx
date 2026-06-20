@@ -21,7 +21,14 @@ function LoginPage() {
     const res = await signIn(email, password);
     setBusy(false);
     if (!res.ok) { showToast(res.error === "Invalid login credentials" ? "이메일 또는 비밀번호가 올바르지 않습니다" : (res.error || "로그인에 실패했습니다")); return; }
-    navigate("/mypage");
+    let dest = "/mypage";
+    if (window.isAdmin && window.isAdmin({ email })) dest = "/admin";
+    else if (window.isStaff && window.isStaff({ email })) dest = "/teacher";
+    else if (window.fetchProfileRoleByEmail) {
+      const role = await window.fetchProfileRoleByEmail(email);
+      if (role === "admin") dest = "/admin"; else if (role === "teacher") dest = "/teacher";
+    }
+    navigate(dest);
   };
 
   return (
@@ -30,9 +37,8 @@ function LoginPage() {
         {/* Left — editorial pane */}
         <div style={{ background: "var(--rj-ink)", color: "var(--rj-paper)", padding: "64px 56px", position: "relative", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
           <div>
-            <button onClick={() => navigate("/")} className="brand-wordmark" style={{ color: "var(--rj-paper)", alignItems: "center" }}>
-              <img src="assets/logo-mark.png" alt="" className="brand-logo-mark" />
-              리뉴젠 아카데미
+            <button onClick={() => navigate("/")} className="brand-wordmark brand-wordmark--logo" style={{ background: "transparent", border: 0, padding: 0, cursor: "pointer" }}>
+              <img src="assets/logo-full.png" alt="리뉴젠 아카데미 · Re:newgen Academy" className="brand-logo-full brand-logo-full--lg" />
             </button>
             <div style={{ marginTop: 80, maxWidth: 460 }}>
               <div className="eyebrow" style={{ color: "rgba(245,241,233,0.5)" }}>Welcome Back</div>
@@ -115,9 +121,10 @@ function SignupPage() {
   const { navigate, login, signUp, showToast } = useApp();
   const [step, setStep] = useStateA(1);
   const [busy, setBusy] = useStateA(false);
-  const [data, setData] = useStateA({ email: "", password: "", name: "", phone: "", grade: "고2", subject: "math", school: "", agree: { service: false, privacy: false, marketing: false } });
+  const [data, setData] = useStateA({ email: "", password: "", name: "", phone: "", age: "", role: "student", grade: "고2", subject: "math", teachGrade: "고등", school: "", agree: { service: false, privacy: false, marketing: false } });
   const update = (k, v) => setData((d) => ({ ...d, [k]: v }));
   const allAgree = data.agree.service && data.agree.privacy;
+  const isTeacher = data.role === "teacher";
 
   const google = async () => {
     if (!window.SUPABASE_ENABLED) { showToast("구글 로그인은 Supabase 연결 후 작동합니다"); return; }
@@ -130,14 +137,25 @@ function SignupPage() {
       if (!data.email || !data.password || !allAgree) { showToast("필수 항목을 입력해주세요"); return; }
     }
     if (step === 2) {
-      if (!data.name || !data.school) { showToast("이름과 학교를 입력해주세요"); return; }
+      if (!data.name) { showToast("이름을 입력해주세요"); return; }
+      if (!data.age) { showToast("나이(만)를 입력해주세요"); return; }
+      if (!isTeacher && !data.school) { showToast("학교를 입력해주세요"); return; }
     }
     setStep((s) => s + 1);
   };
 
   const finish = async () => {
+    if (!data.name) { showToast("이름을 입력해주세요"); return; }
+    if (!data.age) { showToast("나이(만)를 입력해주세요"); return; }
+    if (!isTeacher && !data.school) { showToast("학교를 입력해주세요"); return; }
     setBusy(true);
-    const res = await signUp({ email: data.email, password: data.password, name: data.name, grade: data.grade, school: data.school, subject: data.subject });
+    const res = await signUp({
+      email: data.email, password: data.password, name: data.name,
+      age: data.age, phone: data.phone, role: data.role,
+      grade: isTeacher ? data.teachGrade : data.grade,
+      school: isTeacher ? "" : data.school,
+      subject: data.subject,
+    });
     setBusy(false);
     if (!res.ok) {
       showToast(res.error && res.error.includes("already") ? "이미 가입된 이메일입니다" : (res.error || "가입에 실패했습니다"));
@@ -148,7 +166,7 @@ function SignupPage() {
       navigate("/login");
       return;
     }
-    navigate("/mypage");
+    navigate(window.isStaff && window.isStaff({ email: data.email }) ? "/admin" : "/mypage");
   };
 
   return (
@@ -160,12 +178,12 @@ function SignupPage() {
 
       {/* Steps */}
       <div style={{ display: "flex", gap: 4, marginTop: 36 }}>
-        {[1, 2, 3].map((n) => (
+        {[1, 2].map((n) => (
           <div key={n} style={{ flex: 1, height: 3, background: step >= n ? "var(--rj-ink)" : "var(--rj-faint)", borderRadius: 2 }} />
         ))}
       </div>
       <div className="label-cap" style={{ color: "var(--rj-muted)", marginTop: 12 }}>
-        STEP {step} / 3 — {["계정 만들기", "프로필 입력", "관심 과목"][step - 1]}
+        STEP {step} / 2 — {["계정 만들기", isTeacher ? "선생님 정보" : "프로필 입력"][step - 1]}
       </div>
 
       {/* Step 1 */}
@@ -205,53 +223,71 @@ function SignupPage() {
       {/* Step 2 */}
       {step === 2 && (
         <div style={{ marginTop: 32, display: "grid", gap: 18 }}>
-          <div className="field"><label>이름</label><input className="input input-lg" value={data.name} onChange={(e) => update("name", e.target.value)} placeholder="한도윤" /></div>
+          {/* 역할 선택 */}
           <div className="field">
-            <label>휴대폰 <span style={{ color: "var(--rj-muted)", fontWeight: 400 }}>· 선택 (없으면 가입 이메일로 클래스인 계정이 생성됩니다)</span></label>
-            <input className="input input-lg" value={data.phone} onChange={(e) => update("phone", e.target.value)} placeholder="010-0000-0000" inputMode="tel" />
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <div className="field">
-              <label>학년</label>
-              <select className="input input-lg" value={data.grade} onChange={(e) => update("grade", e.target.value)}>
-                {["중2", "중3", "고1", "고2", "고3", "N수생"].map((g) => <option key={g}>{g}</option>)}
-              </select>
+            <label>가입 유형</label>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              {[["student", "학생", "수업을 듣는 회원"], ["teacher", "선생님", "강의·학생 관리"]].map(([k, ko, desc]) => (
+                <button key={k} type="button" onClick={() => update("role", k)} style={{
+                  padding: "14px 16px", borderRadius: "var(--rj-r-sm)", border: "1.5px solid",
+                  borderColor: data.role === k ? "var(--rj-ink)" : "var(--rj-faint)",
+                  background: data.role === k ? "var(--rj-ink)" : "transparent",
+                  color: data.role === k ? "var(--rj-paper)" : "var(--rj-ink)",
+                  textAlign: "left", cursor: "pointer",
+                }}>
+                  <div style={{ fontWeight: 800, fontSize: 15 }}>{ko}</div>
+                  <div style={{ fontSize: 12, opacity: 0.7, marginTop: 2 }}>{desc}</div>
+                </button>
+              ))}
             </div>
-            <div className="field"><label>학교</label><input className="input input-lg" value={data.school} onChange={(e) => update("school", e.target.value)} placeholder="리뉴젠고등학교" /></div>
           </div>
+
+          <div className="field"><label>이름</label><input className="input input-lg" value={data.name} onChange={(e) => update("name", e.target.value)} placeholder={isTeacher ? "김지원" : "한도윤"} /></div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div className="field"><label>나이 <span style={{ color: "var(--rj-muted)", fontWeight: 400 }}>· 만</span></label><input className="input input-lg" value={data.age} onChange={(e) => update("age", e.target.value.replace(/[^0-9]/g, ""))} placeholder="17" inputMode="numeric" maxLength={2} /></div>
+            <div className="field">
+              <label>휴대폰</label>
+              <input className="input input-lg" value={data.phone} onChange={(e) => update("phone", e.target.value)} placeholder="010-0000-0000" inputMode="tel" />
+            </div>
+          </div>
+
+          {isTeacher ? (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div className="field">
+                <label>담당 과목</label>
+                <select className="input input-lg" value={data.subject} onChange={(e) => update("subject", e.target.value)}>
+                  {window.SUBJECTS.map((s) => <option key={s.id} value={s.id}>{s.ko || s.id}</option>)}
+                </select>
+              </div>
+              <div className="field">
+                <label>담당 학년</label>
+                <select className="input input-lg" value={data.teachGrade} onChange={(e) => update("teachGrade", e.target.value)}>
+                  {["중등", "고등", "중·고등 전체", "N수·재수"].map((g) => <option key={g}>{g}</option>)}
+                </select>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div className="field">
+                <label>학년</label>
+                <select className="input input-lg" value={data.grade} onChange={(e) => update("grade", e.target.value)}>
+                  {["중2", "중3", "고1", "고2", "고3", "N수생"].map((g) => <option key={g}>{g}</option>)}
+                </select>
+              </div>
+              <div className="field"><label>학교</label><input className="input input-lg" value={data.school} onChange={(e) => update("school", e.target.value)} placeholder="리뉴젠고등학교" /></div>
+            </div>
+          )}
+
+          {isTeacher && (
+            <p style={{ fontSize: 12.5, color: "var(--rj-muted)", margin: 0, lineHeight: 1.6, padding: "12px 14px", background: "var(--rj-paper-2)", borderRadius: "var(--rj-r-sm)" }}>
+              선생님 계정은 가입 후 <strong>관리자 승인</strong>을 거쳐 강의·학생 관리 권한이 활성화됩니다.
+            </p>
+          )}
+
           <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
             <button className="btn btn-ghost btn-lg" onClick={() => setStep(1)}><Icon name="arrowLeft" size={14} /> 이전</button>
-            <button className="btn btn-primary btn-lg" style={{ flex: 1 }} onClick={next}>다음 <Icon name="arrow" size={14} /></button>
-          </div>
-        </div>
-      )}
-
-      {/* Step 3 */}
-      {step === 3 && (
-        <div style={{ marginTop: 32 }}>
-          <div className="label-cap" style={{ color: "var(--rj-muted)" }}>SUBJECTS · 관심 과목 (복수 선택)</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginTop: 12 }}>
-            {window.SUBJECTS.map((s) => (
-              <button key={s.id} onClick={() => update("subject", s.id)} style={{
-                padding: 16, borderRadius: "var(--rj-r-sm)", border: "1px solid",
-                borderColor: data.subject === s.id ? "var(--rj-ink)" : "var(--rj-faint)",
-                background: data.subject === s.id ? "var(--rj-ink)" : "transparent",
-                color: data.subject === s.id ? "var(--rj-paper)" : "var(--rj-ink)",
-                cursor: "pointer",
-                fontSize: 14, fontWeight: 600,
-              }}>{s.ko}<div style={{ fontFamily: "var(--font-en)", fontStyle: "italic", fontWeight: 300, fontSize: 11, opacity: 0.6, marginTop: 4 }}>{s.en}</div></button>
-            ))}
-          </div>
-
-          <div className="card-accent" style={{ marginTop: 28, padding: 24 }}>
-            <div className="eyebrow">First Week Free</div>
-            <div style={{ fontFamily: "var(--font-kr-serif)", fontSize: 24, letterSpacing: "-0.025em", marginTop: 10 }}>회원가입과 동시에 1주차 강의가 열립니다.</div>
-            <p style={{ marginTop: 8, fontSize: 13 }}>모든 강의의 1주차 라이브와 다시보기를 결제 없이 시청할 수 있습니다.</p>
-          </div>
-
-          <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
-            <button className="btn btn-ghost btn-lg" onClick={() => setStep(2)}><Icon name="arrowLeft" size={14} /> 이전</button>
-            <button className="btn btn-primary btn-lg" style={{ flex: 1 }} onClick={finish} disabled={busy}>{busy ? "가입 중…" : <>가입 완료 → 마이페이지 <Icon name="arrow" size={14} /></>}</button>
+            <button className="btn btn-primary btn-lg" style={{ flex: 1 }} onClick={finish} disabled={busy}>{busy ? "가입 중…" : <>가입 완료 <Icon name="arrow" size={14} /></>}</button>
           </div>
         </div>
       )}

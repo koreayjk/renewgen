@@ -136,6 +136,29 @@ const REPORTS = [
   },
 ];
 
+// ── Classroom — Homework (과제 배포·수집·채점) ────────────────────
+// myStatus: pending(미제출) · submitted(제출·채점대기) · graded(채점완료) · late(지각제출)
+const HOMEWORK = [
+  { id: "hw-0521", courseId: "math-calc-2026", title: "4주차 — 도함수의 활용 워크북", type: "문제풀이",
+    assignedAt: "2026.05.20", due: "2026.05.24 23:59", maxScore: 100,
+    myStatus: "pending", submittedAt: null, myScore: null, feedback: "",
+    submitted: 142, total: 200, attachments: [{ name: "도함수_워크북.pdf", type: "pdf" }] },
+  { id: "hw-0519", courseId: "korean-lit-2026", title: "비문학 지문 분석 — 과학·기술", type: "첨삭",
+    assignedAt: "2026.05.18", due: "2026.05.22 23:59", maxScore: 100,
+    myStatus: "submitted", submittedAt: "2026.05.21 21:30", myScore: null, feedback: "",
+    submitted: 168, total: 184, attachments: [{ name: "지문분석_양식.docx", type: "doc" }] },
+  { id: "hw-0515", courseId: "english-struct-2026", title: "구문 분석 퀴즈 — 관계사", type: "퀴즈",
+    assignedAt: "2026.05.13", due: "2026.05.16 23:59", maxScore: 20,
+    myStatus: "graded", submittedAt: "2026.05.15 19:10", myScore: 18,
+    feedback: "관계대명사 생략 구문에서 1개 실수. 전반적으로 우수합니다.",
+    submitted: 88, total: 96, attachments: [] },
+  { id: "hw-0512", courseId: "korean-lit-2026", title: "주제어 흐름 요약 과제", type: "첨삭",
+    assignedAt: "2026.05.10", due: "2026.05.13 23:59", maxScore: 100,
+    myStatus: "graded", submittedAt: "2026.05.12 22:40", myScore: 92,
+    feedback: "문단 간 연결이 매끄러워졌습니다. 결론 압축을 한 번 더.",
+    submitted: 175, total: 184, attachments: [] },
+];
+
 // ── App download (Download URL) ─────────────────────────────────────
 const DOWNLOADS = [
   { os: "Windows", note: "Win 7 이상", ver: "5.2.1" },
@@ -196,8 +219,12 @@ const WEBLIVE = {
   ],
 };
 
+// 예시 데이터 비움 — 실제 운영 데이터로 채웁니다
+ROSTER.length = 0; RECORDINGS.length = 0; CLOUD_FOLDERS.length = 0; CLOUD_FILES.length = 0;
+REPORTS.length = 0; HOMEWORK.length = 0; ADMIN_ACCOUNTS.length = 0; ADMIN_CLASSES.length = 0; SUB_MESSAGES.length = 0;
+
 Object.assign(window, {
   CLASSIN, CLASSIN_ME, ROSTER, REALTIME, RECORDINGS,
-  CLOUD_FOLDERS, CLOUD_FILES, REPORTS, DOWNLOADS,
+  CLOUD_FOLDERS, CLOUD_FILES, REPORTS, HOMEWORK, DOWNLOADS,
   ADMIN_ACCOUNTS, ADMIN_CLASSES, SUB_MESSAGES, WEBLIVE,
 });

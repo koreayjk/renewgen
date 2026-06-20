@@ -1,6 +1,13 @@
 /* global React, COURSES, useApp, Icon, findCourse, findInstructor, findSubject, formatKRW */
 
-const { useState: useStateK, useMemo: useMemoK } = React;
+const { useState: useStateK, useMemo: useMemoK, useEffect: useEffectK } = React;
+
+// 결제 성공 시 접근권 부여 (데모: localStorage / 실서버: Supabase enrollments)
+function grantOrderAccess(pending) {
+  if (!pending) return;
+  if (pending.type === "subscribe") { window.demoSubscribe && window.demoSubscribe(); return; }
+  (pending.itemIds || []).forEach((id) => { window.demoBuyCourse && window.demoBuyCourse(id); });
+}
 
 // ──────────────────────────────────────────────────────────────────
 // /cart
@@ -103,8 +110,9 @@ function SummaryRow({ label, value, muted, strike, accent, big }) {
 // /checkout — 3 steps
 // ──────────────────────────────────────────────────────────────────
 function CheckoutPage() {
-  const { navigate, cart, clearCart, user, showToast } = useApp();
-  const [step, setStep] = useStateK(1); // 1: 정보, 2: 결제, 3: 완료
+  const { navigate, cart, clearCart, user } = useApp();
+  const [step, setStep] = useStateK(1); // 1: 정보, 2: 결제
+  const [redir, setRedir] = useStateK(null); // 토스 복귀 처리: {phase:'confirming'|'done'|'fail', ...}
   const items = cart.map((c) => findCourse(c.courseId)).filter(Boolean);
 
   const subtotal = items.reduce((s, c) => s + c.salePrice, 0);
@@ -118,18 +126,72 @@ function CheckoutPage() {
     parent: "이미정",
     parentPhone: "010-9876-5432",
   });
-  const [pay, setPay] = useStateK({
-    method: "card",
-    cardNo: "4280  ••••  ••••  ••••",
-    holder: "한도윤",
-    expiry: "08 / 28",
-    cvc: "•••",
-    install: "일시불",
-  });
 
-  const orderId = useMemoK(() => "RJ-" + new Date().getFullYear().toString().slice(-2) + "-" + String(Math.floor(100000 + Math.random() * 900000)), []);
+  // 토스 결제창에서 복귀 → 서버 승인 처리
+  useEffectK(() => {
+    const rd = window.readTossRedirect && window.readTossRedirect();
+    if (!rd) return;
+    window.clearTossRedirect && window.clearTossRedirect();
+    const pending = window.readPendingOrder && window.readPendingOrder();
+    if (rd.kind === "fail") { setRedir({ phase: "fail", message: rd.message, code: rd.code, pending }); return; }
+    setRedir({ phase: "confirming", pending });
+    (async () => {
+      const r = await window.confirmTossPayment({ paymentKey: rd.paymentKey, orderId: rd.orderId, amount: rd.amount });
+      if (r.ok) {
+        grantOrderAccess(pending);
+        window.clearPendingOrder && window.clearPendingOrder();
+        try { clearCart(); } catch (e) {}
+        setRedir({ phase: "done", pending, orderId: rd.orderId, amount: Number(rd.amount) });
+      } else {
+        setRedir({ phase: "fail", message: r.error || "결제 승인에 실패했습니다", code: r.code, pending });
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  if (items.length === 0 && step !== 3) {
+  // 대기 주문 저장 (결제창 열기 직전)
+  const saveOrder = ({ orderId }) => {
+    window.savePendingOrder && window.savePendingOrder({
+      type: "courses",
+      itemIds: items.map((c) => c.id),
+      total, orderId,
+      orderName: items.length ? (items[0].title + (items.length > 1 ? " 외 " + (items.length - 1) + "건" : "")) : "강의 결제",
+      info: { name: info.name, email: info.email },
+    });
+  };
+
+  // ── 토스 복귀 화면 (승인 중 / 완료 / 실패) ─────────────────────────────
+  if (redir) {
+    const pend = redir.pending || {};
+    const rItems = (pend.itemIds || []).map((id) => findCourse(id)).filter(Boolean);
+    const rInfo = pend.info || info;
+    const rTotal = redir.amount || pend.total || total;
+    return (
+      <div className="page-enter">
+        <section style={{ borderBottom: "1px solid var(--rj-faint)" }}>
+          <div className="container-wide" style={{ paddingTop: 48, paddingBottom: 32 }}>
+            <div className="eyebrow" style={{ color: "var(--rj-muted)" }}>Checkout · 결제</div>
+            <h1 style={{ fontFamily: "var(--font-kr-serif)", fontWeight: 500, fontSize: 48, letterSpacing: "-0.03em", margin: "12px 0 0" }}>
+              {redir.phase === "confirming" && "결제를 승인하는 중…"}
+              {redir.phase === "done" && "주문이 완료되었습니다."}
+              {redir.phase === "fail" && "결제가 완료되지 않았습니다."}
+            </h1>
+          </div>
+        </section>
+        <section className="container-wide" style={{ paddingTop: 48, paddingBottom: 96 }}>
+          {redir.phase === "confirming" && <ConfirmingView />}
+          {redir.phase === "done" && (
+            pend.type === "subscribe"
+              ? <SubscribeSuccess orderId={redir.orderId} total={rTotal} info={rInfo} tier={pend.tier} onGoMyPage={() => navigate("/mypage?tab=recordings")} onGoHome={() => navigate("/")} />
+              : <CheckoutSuccess orderId={redir.orderId} items={rItems} total={rTotal} info={rInfo} onGoMyPage={() => navigate("/mypage")} onGoCourses={() => navigate("/courses")} onPlay={(id) => navigate("/player/" + id)} />
+          )}
+          {redir.phase === "fail" && <CheckoutFail message={redir.message} code={redir.code} onRetry={() => { setRedir(null); navigate("/cart"); }} onHome={() => { setRedir(null); navigate("/"); }} />}
+        </section>
+      </div>
+    );
+  }
+
+  if (items.length === 0) {
     return (
       <div className="container page-enter" style={{ padding: "120px 0", textAlign: "center" }}>
         <h2 style={{ fontFamily: "var(--font-kr-serif)", fontWeight: 500, fontSize: 32 }}>장바구니가 비어 있습니다</h2>
@@ -137,14 +199,6 @@ function CheckoutPage() {
       </div>
     );
   }
-
-  const submit = () => {
-    // Simulate
-    showToast("결제가 완료되었습니다");
-    setStep(3);
-    // Don't clear cart yet — used in success screen
-    setTimeout(() => clearCart(), 0);
-  };
 
   return (
     <div className="page-enter">
@@ -159,7 +213,6 @@ function CheckoutPage() {
               <h1 style={{ fontFamily: "var(--font-kr-serif)", fontWeight: 500, fontSize: 48, letterSpacing: "-0.03em", margin: "12px 0 0" }}>
                 {step === 1 && "주문 정보 확인"}
                 {step === 2 && "결제 수단 선택"}
-                {step === 3 && "주문이 완료되었습니다."}
               </h1>
             </div>
             <StepIndicator step={step} />
@@ -168,20 +221,73 @@ function CheckoutPage() {
       </section>
 
       <section className="container-wide" style={{ paddingTop: 48, paddingBottom: 96 }}>
-        {step !== 3 ? (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 400px", gap: 48 }}>
-            <div>
-              {step === 1 && <CheckoutStep1 info={info} setInfo={setInfo} items={items} onNext={() => setStep(2)} />}
-              {step === 2 && <CheckoutStep2 pay={pay} setPay={setPay} total={total} onPay={submit} onBack={() => setStep(1)} />}
-            </div>
-            <aside>
-              <OrderSummary items={items} subtotal={subtotal} bundle={bundle} total={total} step={step} />
-            </aside>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 400px", gap: 48 }}>
+          <div>
+            {step === 1 && <CheckoutStep1 info={info} setInfo={setInfo} items={items} onNext={() => setStep(2)} />}
+            {step === 2 && <CheckoutStep2 items={items} total={total} info={info} user={user} onSaveOrder={saveOrder} onBack={() => setStep(1)} />}
           </div>
-        ) : (
-          <CheckoutSuccess orderId={orderId} items={items} total={total} info={info} onGoMyPage={() => navigate("/mypage")} onGoCourses={() => navigate("/courses")} onPlay={(id) => navigate("/player/" + id)} />
-        )}
+          <aside>
+            <OrderSummary items={items} subtotal={subtotal} bundle={bundle} total={total} step={step} />
+          </aside>
+        </div>
       </section>
+    </div>
+  );
+}
+
+// 승인 대기 화면
+function ConfirmingView() {
+  return (
+    <div style={{ padding: "80px 0", textAlign: "center" }}>
+      <div className="toss-spinner" style={{ width: 44, height: 44, borderRadius: "50%", border: "3px solid var(--rj-faint)", borderTopColor: "var(--rj-ink)", margin: "0 auto", animation: "toss-spin 0.8s linear infinite" }} />
+      <p style={{ marginTop: 24, fontSize: 16, color: "var(--rj-ink)", fontWeight: 600 }}>결제를 승인하고 있습니다</p>
+      <p style={{ marginTop: 6, fontSize: 13, color: "var(--rj-muted)" }}>잠시만 기다려주세요. 창을 닫지 마세요.</p>
+      <style>{"@keyframes toss-spin{to{transform:rotate(360deg)}}"}</style>
+    </div>
+  );
+}
+
+// 결제 실패 화면
+function CheckoutFail({ message, code, onRetry, onHome }) {
+  return (
+    <div style={{ maxWidth: 560 }}>
+      <div style={{ width: 64, height: 64, borderRadius: "50%", background: "rgba(192,57,43,0.1)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+        <Icon name="close" size={28} />
+      </div>
+      <h2 style={{ fontFamily: "var(--font-kr-serif)", fontWeight: 500, fontSize: 32, letterSpacing: "-0.025em", marginTop: 20 }}>결제를 완료하지 못했습니다</h2>
+      <p className="body-lg" style={{ color: "var(--rj-muted)", marginTop: 12 }}>{message || "결제가 취소되거나 승인되지 않았습니다."}</p>
+      {code && <div className="num-en" style={{ marginTop: 8, fontSize: 12, color: "var(--rj-muted)" }}>code: {code}</div>}
+      <div style={{ display: "flex", gap: 10, marginTop: 28 }}>
+        <button className="btn btn-primary btn-lg" onClick={onRetry}>다시 시도 <Icon name="arrow" size={14} /></button>
+        <button className="btn btn-ghost btn-lg" onClick={onHome}>홈으로</button>
+      </div>
+    </div>
+  );
+}
+
+// 구독 결제 완료 화면
+function SubscribeSuccess({ orderId, total, info, tier, onGoMyPage, onGoHome }) {
+  return (
+    <div style={{ maxWidth: 620 }}>
+      <div style={{ width: 72, height: 72, borderRadius: "50%", background: "var(--rj-accent)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+        <Icon name="check" size={32} strokeWidth={2} />
+      </div>
+      <h2 style={{ fontFamily: "var(--font-kr-serif)", fontWeight: 500, fontSize: 44, letterSpacing: "-0.03em", marginTop: 24, lineHeight: 1.1 }}>
+        {info.name}님, 구독이 시작되었습니다.
+      </h2>
+      <p className="body-lg" style={{ color: "var(--rj-muted)", marginTop: 16 }}>
+        {tier ? tier + " · " : ""}이제 해당 분기 전 강좌와 모든 녹화본을 무제한 시청하실 수 있습니다.
+      </p>
+      <div className="card" style={{ padding: 24, marginTop: 28 }}>
+        <div className="label-cap" style={{ color: "var(--rj-muted)" }}>Order Number · 주문번호</div>
+        <div className="num-en" style={{ fontSize: 20, fontWeight: 600, marginTop: 6 }}>{orderId}</div>
+        <div style={{ height: 1, background: "var(--rj-faint)", margin: "16px 0" }} />
+        <SummaryRow label="결제 금액" value={formatKRW(total)} big />
+      </div>
+      <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
+        <button className="btn btn-primary btn-lg" onClick={onGoMyPage}>녹화본 시청하기 <Icon name="arrow" size={14} /></button>
+        <button className="btn btn-ghost btn-lg" onClick={onGoHome}>홈으로</button>
+      </div>
     </div>
   );
 }
@@ -245,84 +351,25 @@ function CheckoutStep1({ info, setInfo, onNext }) {
   );
 }
 
-function CheckoutStep2({ pay, setPay, total, onPay, onBack }) {
-  const methods = [
-    { id: "card",    label: "신용·체크카드", en: "Credit / Debit", icon: "card" },
-    { id: "kakao",   label: "카카오페이",    en: "KakaoPay",        icon: "sparkle" },
-    { id: "naver",   label: "네이버페이",    en: "NaverPay",        icon: "sparkle" },
-    { id: "bank",    label: "무통장 입금",   en: "Bank Transfer",   icon: "book" },
-  ];
+function CheckoutStep2({ items, total, info, user, onSaveOrder, onBack }) {
+  const orderName = items.length ? (items[0].title + (items.length > 1 ? " 외 " + (items.length - 1) + "건" : "")) : "강의 결제";
   return (
     <div>
       <h2 style={{ fontFamily: "var(--font-kr-serif)", fontWeight: 500, fontSize: 26, letterSpacing: "-0.025em", margin: 0 }}>결제 수단</h2>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginTop: 20 }}>
-        {methods.map((m) => (
-          <button key={m.id} onClick={() => setPay({ ...pay, method: m.id })} style={{
-            padding: "18px 14px", borderRadius: "var(--rj-r-sm)", border: "1px solid",
-            borderColor: pay.method === m.id ? "var(--rj-ink)" : "var(--rj-faint)",
-            background: pay.method === m.id ? "var(--rj-ink)" : "transparent",
-            color: pay.method === m.id ? "var(--rj-paper)" : "var(--rj-ink)",
-            cursor: "pointer", display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-start",
-          }}>
-            <Icon name={m.icon} size={18} />
-            <div style={{ fontSize: 14, fontWeight: 600 }}>{m.label}</div>
-            <div style={{ fontFamily: "var(--font-en)", fontStyle: "italic", fontWeight: 300, fontSize: 11, opacity: 0.7 }}>{m.en}</div>
-          </button>
-        ))}
+      <p style={{ fontSize: 14, color: "var(--rj-muted)", marginTop: 10, lineHeight: 1.6 }}>
+        토스페이먼츠 결제창에서 신용·체크카드, 간편결제(토스페이·카카오페이 등), 계좌이체 중 원하는 수단으로 결제하세요.
+      </p>
+      <div style={{ marginTop: 24 }}>
+        <window.TossPayPanel
+          amount={total}
+          orderName={orderName}
+          customer={{ name: info.name, email: info.email }}
+          user={user}
+          onBeforePay={onSaveOrder}
+          buttonLabel={(window.formatKRW ? window.formatKRW(total) : total.toLocaleString() + "원") + " 결제하기"}
+        />
       </div>
-
-      {pay.method === "card" && (
-        <div style={{ marginTop: 32 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-            <div>
-              <h3 style={{ fontFamily: "var(--font-kr-serif)", fontWeight: 500, fontSize: 20, letterSpacing: "-0.025em", margin: "0 0 16px" }}>카드 정보</h3>
-              <div style={{ display: "grid", gap: 14 }}>
-                <div className="field"><label>카드 번호</label><input className="input input-lg" value={pay.cardNo} onChange={(e) => setPay({ ...pay, cardNo: e.target.value })} /></div>
-                <div className="field"><label>카드 소유자</label><input className="input input-lg" value={pay.holder} onChange={(e) => setPay({ ...pay, holder: e.target.value })} /></div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  <div className="field"><label>유효기간</label><input className="input input-lg" value={pay.expiry} onChange={(e) => setPay({ ...pay, expiry: e.target.value })} /></div>
-                  <div className="field"><label>CVC</label><input className="input input-lg" value={pay.cvc} onChange={(e) => setPay({ ...pay, cvc: e.target.value })} /></div>
-                </div>
-                <div className="field">
-                  <label>할부 개월</label>
-                  <select className="input input-lg" value={pay.install} onChange={(e) => setPay({ ...pay, install: e.target.value })}>
-                    {["일시불", "2개월 (무이자)", "3개월 (무이자)", "6개월 (무이자)", "12개월"].map((o) => <option key={o}>{o}</option>)}
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h3 style={{ fontFamily: "var(--font-kr-serif)", fontWeight: 500, fontSize: 20, letterSpacing: "-0.025em", margin: "0 0 16px" }}>카드 미리보기</h3>
-              <CardVisual cardNo={pay.cardNo} holder={pay.holder} expiry={pay.expiry} />
-              <div className="card-soft" style={{ padding: 18, marginTop: 16 }}>
-                <div className="label-cap" style={{ color: "var(--rj-muted)", marginBottom: 8 }}>무이자 할부 안내</div>
-                <p style={{ margin: 0, fontSize: 13, color: "var(--rj-muted)", lineHeight: 1.6 }}>국내 모든 신용카드사 2·3·6개월 무이자 할부 가능. 12개월부터는 카드사 할부 수수료가 적용됩니다.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {pay.method !== "card" && (
-        <div className="card" style={{ padding: 32, marginTop: 32, textAlign: "center" }}>
-          <Icon name="sparkle" size={28} className="" />
-          <h3 style={{ fontFamily: "var(--font-kr-serif)", fontWeight: 500, fontSize: 24, marginTop: 12, letterSpacing: "-0.025em" }}>
-            {{ kakao: "카카오페이", naver: "네이버페이", bank: "무통장 입금" }[pay.method]}로 결제
-          </h3>
-          <p style={{ color: "var(--rj-muted)", marginTop: 8 }}>
-            ‘결제하기’를 누르면 외부 결제창이 열립니다. (데모에서는 즉시 결제 완료로 처리됩니다.)
-          </p>
-        </div>
-      )}
-
-      <div style={{ display: "flex", gap: 10, marginTop: 32 }}>
-        <button className="btn btn-ghost btn-lg" onClick={onBack}><Icon name="arrowLeft" size={14} /> 이전</button>
-        <button className="btn btn-primary btn-lg" style={{ flex: 1 }} onClick={onPay}>
-          <Icon name="lock" size={14} /> {formatKRW(total)} 결제하기
-        </button>
-      </div>
-      <div style={{ marginTop: 14, fontSize: 12, color: "var(--rj-muted)", textAlign: "center" }}>PG · KICC · 안전결제 / 결제 정보는 암호화되어 전송됩니다.</div>
+      <button className="btn btn-ghost btn-lg" style={{ marginTop: 20 }} onClick={onBack}><Icon name="arrowLeft" size={14} /> 이전 단계</button>
     </div>
   );
 }

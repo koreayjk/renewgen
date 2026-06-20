@@ -14,7 +14,8 @@ function CoursesPage() {
   const [query, setQuery] = useStateC("");
 
   const filtered = useMemoC(() => {
-    let xs = COURSES.slice();
+    // 공개 메뉴에는 "전체공개(샘플)" 강의만 노출 · "회원전용(진짜)" 강의는 로그인 대시보드에서만
+    let xs = (window.publicCourses ? window.publicCourses() : COURSES).slice();
     if (subject !== "all") xs = xs.filter((c) => c.subject === subject);
     if (level !== "all") xs = xs.filter((c) => c.level.includes(level));
     if (query) xs = xs.filter((c) => (c.title + c.subtitle).toLowerCase().includes(query.toLowerCase()));

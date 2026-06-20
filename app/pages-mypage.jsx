@@ -8,17 +8,16 @@ const { useState: useStateM, useEffect: useEffectM } = React;
 const DASH_TABS = [
   ["overview",   "학습 홈",        "Overview"],
   ["report",     "성적표",        "Report Card"],
-  ["realtime",   "실시간 데이터",   "Live Data"],
+  ["homework",   "과제",          "Homework"],
+  ["exam",       "시험",          "Exam"],
   ["recordings", "다시보기",       "Recordings"],
   ["cloud",      "강의자료",       "Cloud Disk"],
-  ["reports",    "수업 리포트",     "Reports"],
-  ["account",    "계정 · 연동",     "Account"],
 ];
 
 function MyPage() {
   const { navigate, user, login, logout, route } = useApp();
   const initialTab = route?.params?.get?.("tab");
-  const [tab, setTab] = useStateM(DASH_TABS.some(([k]) => k === initialTab) ? initialTab : "overview");
+  const [tab, setTab] = useStateM((DASH_TABS.some(([k]) => k === initialTab) || initialTab === "account") ? initialTab : "overview");
 
   // Supabase 연동 시: 로그인한 사용자만 접근. 미설정 시: 데모 자동로그인.
   useEffectM(() => { if (!user && !window.SUPABASE_ENABLED) login(ACCOUNT.email, ACCOUNT.name, ACCOUNT.initials); }, []);
@@ -38,11 +37,11 @@ function MyPage() {
   }
 
   const isKnown = user.email === ACCOUNT.email;
-  const enrolledIds = isKnown ? ACCOUNT.enrolled : [COURSES[0].id, COURSES[2].id];
+  const enrolledIds = isKnown ? (ACCOUNT.enrolled || []) : COURSES.slice(0, 3).map((c) => c.id);
   const enrolled = enrolledIds.map((id) => findCourse(id)).filter(Boolean);
   const history = isKnown ? ACCOUNT.watchHistory : {};
 
-  const todayLive = [COURSES[0], COURSES[1], COURSES[2]];
+  const todayLive = COURSES.slice(0, 3);
 
   return (
     <div className="page-enter">
@@ -60,6 +59,7 @@ function MyPage() {
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               <button className="ci-act" style={{ height: 40 }} onClick={() => navigate("/weblive")}><Icon name="signal" size={14} /> 공개방송</button>
+              <button className="ci-act" style={{ height: 40 }} onClick={() => setTab("account")}><Icon name="user" size={14} /> 계정</button>
               {window.isStaff && window.isStaff(user) && (
                 <button className="ci-act" style={{ height: 40 }} onClick={() => navigate("/admin")}><Icon name="settings" size={14} /> 관리자</button>
               )}
@@ -68,19 +68,25 @@ function MyPage() {
           </div>
         </div>
         {/* Tab strip */}
-        <div className="container-wide">
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", paddingBottom: 0 }}>
-            {DASH_TABS.map(([k, ko, en]) => (
-              <button key={k} onClick={() => setTab(k)} style={{
-                padding: "13px 18px", border: 0, cursor: "pointer",
-                background: tab === k ? "var(--ci-bg)" : "transparent",
-                color: tab === k ? "var(--ci-navy)" : "rgba(255,255,255,0.7)",
-                borderRadius: "8px 8px 0 0", fontWeight: 800, fontSize: 14,
-                display: "inline-flex", alignItems: "baseline", gap: 6, whiteSpace: "nowrap",
-              }}>
-                {ko}<span style={{ fontFamily: "var(--font-en)", fontWeight: 600, fontSize: 10.5, opacity: 0.6 }}>{en}</span>
-              </button>
-            ))}
+        <div style={{ position: "relative", background: "rgba(0,9,22,0.82)", borderTop: "1px solid rgba(255,255,255,0.12)" }}>
+          <div className="container-wide">
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap", paddingBottom: 0 }}>
+              {DASH_TABS.map(([k, ko, en]) => {
+                const on = tab === k;
+                return (
+                  <button key={k} onClick={() => setTab(k)} style={{
+                    padding: "13px 18px", border: 0, cursor: "pointer",
+                    background: on ? "var(--ci-bg)" : "rgba(255,255,255,0.06)",
+                    color: on ? "var(--ci-navy)" : "#fff",
+                    marginTop: 6, borderRadius: "8px 8px 0 0", fontWeight: 800, fontSize: 14,
+                    display: "inline-flex", alignItems: "baseline", gap: 6, whiteSpace: "nowrap",
+                    transition: "background .15s, color .15s",
+                  }}>
+                    {ko}<span style={{ fontFamily: "var(--font-en)", fontWeight: 600, fontSize: 10.5, opacity: on ? 0.55 : 0.7 }}>{en}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       </section>
@@ -88,7 +94,28 @@ function MyPage() {
       <section className="container-wide" style={{ paddingTop: 28, paddingBottom: 96 }}>
         {tab === "overview" && (
           <div style={{ display: "grid", gap: 28 }}>
-            <ConnBanner />
+            <ConnBanner student />
+
+            {/* 이번 달 정기고사 알림 — 로그인 즉시 노출 */}
+            {window.currentExam && window.currentExam() && (() => {
+              const ex = window.currentExam();
+              const due = ex.dueAt ? new Date(ex.dueAt) : null;
+              const days = due ? Math.ceil((due.getTime() - Date.now()) / 86400000) : null;
+              const dtxt = days == null ? "" : days <= 0 ? "오늘 마감" : "D-" + days;
+              const reminded = window.getExamReminder && window.getExamReminder(ex.id);
+              return (
+                <div onClick={() => setTab("exam")} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 16, padding: "16px 20px", borderRadius: 14, background: "var(--ci-navy)", color: "#fff", position: "relative", overflow: "hidden" }}>
+                  <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 92% 30%, rgba(247,200,72,0.20), transparent 45%)" }} />
+                  <span style={{ position: "relative", width: 46, height: 46, flexShrink: 0, borderRadius: "50%", background: "var(--ci-yellow)", color: "var(--ci-navy)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}><Icon name="edit" size={20} /></span>
+                  <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: "var(--ci-yellow)", letterSpacing: "0.03em" }}>{reminded ? "강사 리마인드 · 아직 응시하지 않았습니다" : "이번 달 정기고사 응시 기간입니다"} {dtxt && "· " + dtxt}</div>
+                    <div style={{ fontWeight: 900, fontSize: 18, letterSpacing: "-0.03em", marginTop: 2 }}>{ex.title}</div>
+                  </div>
+                  <button className="ci-act" style={{ position: "relative", height: 44, padding: "0 20px", background: "var(--ci-yellow)", color: "var(--ci-navy)", border: 0, fontWeight: 900 }} onClick={(e) => { e.stopPropagation(); setTab("exam"); }}>시험 보러가기 <Icon name="arrow" size={14} /></button>
+                </div>
+              );
+            })()}
+
 
             {/* learning KPIs */}
             <div className="ci-kpis">
@@ -141,6 +168,35 @@ function MyPage() {
               </div>
             </div>
 
+            {/* members-only real lineup — 로그인 학생에게만 보이는 진짜 강의 */}
+            {window.memberCourses && window.memberCourses().length > 0 && (
+              <div>
+                <CiHead title="회원 전용 강의" api="Members Only"
+                  sub="로그인한 수강생에게만 공개되는 정규 라이브 강의입니다" />
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
+                  {window.memberCourses().map((c) => {
+                    const ins = findInstructor(c.instructor);
+                    return (
+                      <div key={c.id} className="ci-card" style={{ padding: 18, display: "flex", flexDirection: "column", gap: 12 }}>
+                        <div>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                            <span className="ci-badge navy">{findSubject(c.subject)?.ko}</span>
+                            <span className="ci-badge neutral" style={{ fontSize: 10.5 }}><Icon name="lock" size={10} /> 회원 전용</span>
+                          </div>
+                          <strong style={{ fontWeight: 900, fontSize: 17, letterSpacing: "-0.03em", display: "block" }}>{c.title}</strong>
+                          <span style={{ fontSize: 12.5, color: "var(--ci-muted)" }}>{ins?.name}{c.level ? " · " + c.level : ""}</span>
+                        </div>
+                        <div style={{ display: "flex", gap: 8, marginTop: "auto" }}>
+                          <button className="ci-act navy" onClick={() => navigate("/live/" + c.id)}><Icon name="live" size={13} /> 강의 입장</button>
+                          <button className="ci-act" onClick={() => navigate("/courses/" + c.id)}>강의 정보</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* app download */}
             <div>
               <CiHead title="클래스인 앱 다운로드" api="Download URL"
@@ -150,28 +206,27 @@ function MyPage() {
           </div>
         )}
 
-        {tab === "report" && <ReportSelfView userName={user.name} />}
-        {tab === "realtime" && <RealtimePanel />}
-        {tab === "recordings" && <RecordingsPanel onPlay={(id) => navigate("/player/" + id)} />}
-        {tab === "cloud" && <CloudPanel />}
-        {tab === "reports" && <ReportsPanel />}
+        {tab === "report" && (
+          <>
+            {window.ExamRecap && <window.ExamRecap onOpen={() => setTab("exam")} />}
+            <ReportSelfView userName={user.name} />
+          </>
+        )}
+        {tab === "homework" && <window.HomeworkPanel student />}
+        {tab === "exam" && <window.ExamPanel />}
+        {tab === "recordings" && <RecordingsPanel student onPlay={(id) => navigate("/player/" + id)} />}
+        {tab === "cloud" && <CloudPanel student />}
 
         {tab === "account" && (
           <div>
-            <CiHead title="계정 · 클래스인 연동" api="User" sub="리뉴젠 계정과 ClassIn 사용자 레코드 연결 정보" />
+            <CiHead title="계정 · 개인정보" api="Profile" sub="개인정보를 직접 수정할 수 있습니다 · 이메일은 변경할 수 없습니다" />
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, maxWidth: 1040 }}>
-              <ProfileBlock title="ClassIn 사용자" en="User Record">
+              <ProfileEditor user={user} />
+              <ProfileBlock title="ClassIn 연동" en="User Record">
                 <Row label="UID" value={<span className="ci-mono">{CLASSIN_ME.uid}</span>} />
                 <Row label="이름" value={user.name} />
-                <Row label="등록 휴대폰" value={<span className="ci-mono">{CLASSIN_ME.mobile}</span>} />
                 <Row label="식별 (identity)" value="student" />
                 <Row label="연결 상태" value={<span className="ci-badge ok"><Icon name="check" size={11} /> 연동됨</span>} />
-              </ProfileBlock>
-              <ProfileBlock title="기본 정보" en="Profile">
-                <Row label="이메일" value={user.email} />
-                <Row label="학년" value={ACCOUNT.grade} />
-                <Row label="학교" value="리뉴젠고등학교" />
-                <Row label="가입일" value="2025.11.04" />
               </ProfileBlock>
               <ProfileBlock title="알림" en="Notifications">
                 <Row label="라이브 시작 알림" value={<input type="checkbox" defaultChecked />} />
@@ -179,16 +234,102 @@ function MyPage() {
                 <Row label="수업 리포트 발행" value={<input type="checkbox" defaultChecked />} />
                 <Row label="트로피 · 평가" value={<input type="checkbox" defaultChecked />} />
               </ProfileBlock>
-              <ProfileBlock title="연동 · 보안" en="Integration">
-                <Row label="School SID" value={<span className="ci-mono">{CLASSIN.sid}</span>} />
-                <Row label="앱 버전" value="ClassIn 5.2.1" />
+              <ProfileBlock title="보안" en="Security">
+                <Row label="이메일" value={<span className="ci-mono">{user.email}</span>} />
                 <Row label="연결된 계정" value="카카오, 네이버" />
+                <Row label="로그인 알림" value={<input type="checkbox" defaultChecked />} />
                 <Row label="비밀번호" value={<button className="btn-link" style={{ fontSize: 13 }}>변경</button>} />
               </ProfileBlock>
             </div>
           </div>
         )}
       </section>
+    </div>
+  );
+}
+
+function ProfileEditor({ user }) {
+  const { showToast } = useApp();
+  const [form, setForm] = useStateM({ name: user.name || "", phone: "", gender: "", age: "", grade: ACCOUNT.grade || "고2", school: "" });
+  const [loaded, setLoaded] = useStateM(false);
+  const [busy, setBusy] = useStateM(false);
+  const up = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  // 서버 프로필 불러오기 (있으면 채움)
+  useEffectM(() => {
+    let on = true;
+    if (window.SUPABASE_ENABLED && user.id && window.fetchMyProfile) {
+      window.fetchMyProfile(user.id).then((p) => {
+        if (!on || !p) { setLoaded(true); return; }
+        setForm((f) => ({
+          name: p.name || f.name, phone: p.phone || "", gender: p.gender || "",
+          age: p.age != null ? String(p.age) : "", grade: p.grade || f.grade, school: p.school || "",
+        }));
+        setLoaded(true);
+      });
+    } else { setLoaded(true); }
+    return () => { on = false; };
+  }, []);
+
+  const save = async () => {
+    if (!form.name.trim()) { showToast("이름을 입력해주세요"); return; }
+    setBusy(true);
+    const patch = {
+      name: form.name.trim(), phone: form.phone.trim(), gender: form.gender,
+      age: form.age ? Number(form.age) : null, grade: form.grade, school: form.school.trim(),
+    };
+    const res = window.updateMyProfile ? await window.updateMyProfile(user.id, patch) : { ok: true };
+    setBusy(false);
+    if (res.ok && res.partial) { showToast("저장됐습니다 (나이·성별은 DB 설정 후 반영됩니다)"); return; }
+    showToast(res.ok ? "개인정보가 저장되었습니다" : "저장에 실패했습니다");
+  };
+
+  const inSt = { width: "100%", height: 42, borderRadius: 8, border: "1px solid var(--ci-line)", padding: "0 12px", fontSize: 14, fontFamily: "var(--font-kr)", background: "var(--ci-paper)" };
+  const labSt = { display: "block", fontSize: 12, fontWeight: 800, color: "var(--ci-muted)", marginBottom: 6 };
+
+  return (
+    <div className="ci-card ci-card-pad">
+      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 16 }}>
+        <h3 style={{ margin: 0, fontWeight: 900, fontSize: 18, letterSpacing: "-0.03em" }}>개인정보 수정</h3>
+        <span style={{ fontFamily: "var(--font-en)", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ci-muted)" }}>Edit Profile</span>
+      </div>
+
+      <div style={{ display: "grid", gap: 14 }}>
+        <div>
+          <label style={labSt}>이메일 <span style={{ fontWeight: 500 }}>· 변경 불가</span></label>
+          <input value={user.email} readOnly disabled style={{ ...inSt, background: "var(--ci-bg-2)", color: "var(--ci-muted)" }} />
+        </div>
+        <div><label style={labSt}>이름</label><input value={form.name} onChange={(e) => up("name", e.target.value)} style={inSt} placeholder="한도윤" /></div>
+        <div><label style={labSt}>휴대폰</label><input value={form.phone} onChange={(e) => up("phone", e.target.value)} style={inSt} placeholder="010-0000-0000" inputMode="tel" /></div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div>
+            <label style={labSt}>성별</label>
+            <div style={{ display: "flex", gap: 6 }}>
+              {[["male", "남"], ["female", "여"], ["", "비공개"]].map(([v, ko]) => (
+                <button key={ko} type="button" onClick={() => up("gender", v)} style={{
+                  flex: 1, height: 42, borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13.5,
+                  border: "1.5px solid " + (form.gender === v ? "var(--ci-navy)" : "var(--ci-line)"),
+                  background: form.gender === v ? "var(--ci-navy)" : "var(--ci-paper)",
+                  color: form.gender === v ? "#fff" : "var(--ci-ink)",
+                }}>{ko}</button>
+              ))}
+            </div>
+          </div>
+          <div><label style={labSt}>나이 <span style={{ fontWeight: 500 }}>· 만</span></label><input value={form.age} onChange={(e) => up("age", e.target.value.replace(/[^0-9]/g, ""))} style={inSt} placeholder="17" inputMode="numeric" maxLength={2} /></div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div>
+            <label style={labSt}>학년</label>
+            <select value={form.grade} onChange={(e) => up("grade", e.target.value)} style={inSt}>
+              {["중2", "중3", "고1", "고2", "고3", "N수생"].map((g) => <option key={g}>{g}</option>)}
+            </select>
+          </div>
+          <div><label style={labSt}>학교</label><input value={form.school} onChange={(e) => up("school", e.target.value)} style={inSt} placeholder="리뉴젠고등학교" /></div>
+        </div>
+        <button className="ci-act navy" style={{ height: 44, justifyContent: "center", marginTop: 4 }} onClick={save} disabled={busy || !loaded}>
+          <Icon name="check" size={14} /> {busy ? "저장 중…" : "변경사항 저장"}
+        </button>
+      </div>
     </div>
   );
 }

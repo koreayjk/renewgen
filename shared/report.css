@@ -49,6 +49,11 @@
   display: flex; align-items: flex-start; justify-content: space-between; gap: 20px;
 }
 .rc-brand { display: flex; align-items: center; gap: 12px; }
+.rc-brand-logo {
+  display: block; height: 44px; width: auto;
+  /* logo-full.png 은 노란 단색 위 'Re:newgen Academy'. 인쇄 시에도 또렷이 나오게 */
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
 .rc-brand-tx { display: flex; flex-direction: column; gap: 2px; }
 .rc-brand .mark { width: 40px; height: 40px; border-radius: 9px; background: var(--ci-yellow); color: var(--ci-navy);
   display: inline-flex; align-items: center; justify-content: center; font-weight: 900; font-size: 17px; }

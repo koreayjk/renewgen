@@ -51,6 +51,7 @@ function Router() {
   if (seg[0] === "subscribe") return <SubscribePage />;
   if (seg[0] === "weblive") return <WebLivePage />;
   if (seg[0] === "admin") return (window.isStaff && window.isStaff(user)) ? <AdminPage /> : <AdminDenied user={user} />;
+  if (seg[0] === "teacher") return (window.isStaff && window.isStaff(user)) ? <TeacherPage /> : <AdminDenied user={user} />;
   if (seg[0] === "about") return <AboutPage />;
   if (seg[0] === "curriculum") return <CurriculumPage />;
   if (seg[0] === "admissions") return <AdmissionsPage />;
@@ -72,7 +73,9 @@ function Shell() {
   const isPlayer = path.startsWith("/player");
   const isLiveEntry = path.startsWith("/live/") && route.path.split("/").length > 2;
   const isWebLive = path.startsWith("/weblive");
-  const noFooter = isPlayer || isLiveEntry || isWebLive || path.startsWith("/login") || path.startsWith("/signup");
+  const isTeacher = path.startsWith("/teacher");
+  const isAdminPg = path.startsWith("/admin");
+  const noFooter = isPlayer || isLiveEntry || isWebLive || isTeacher || isAdminPg || path.startsWith("/login") || path.startsWith("/signup");
   return (
     <>
       <SiteHeader />

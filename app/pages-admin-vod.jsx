@@ -29,6 +29,73 @@ function vodFileToThumb(file, cb) {
 
 const VOD_COLORS = ["ink", "cream", "accent", "deep"];
 
+const CUSTOM_INS = "__custom__::";
+// 강사 선택 — 등록된 강사가 없으면(또는 맞는 강사가 없으면) '직접 입력'으로 이름만 받는다
+function InstructorPicker({ value, onChange }) {
+  const list = window.INSTRUCTORS || [];
+  const isCustom = typeof value === "string" && value.indexOf(CUSTOM_INS) === 0;
+  const known = list.some((i) => i.id === value);
+  const [mode, setMode] = useStV(isCustom || (value && !known) ? "custom" : "select");
+  const customName = isCustom ? value.slice(CUSTOM_INS.length) : "";
+  if (mode === "custom") {
+    return (
+      <div style={{ display: "flex", gap: 8 }}>
+        <input autoFocus value={customName} onChange={(e) => onChange(CUSTOM_INS + e.target.value)} placeholder="강사 이름 직접 입력 (예: 한지훈)" style={{ ...inStyle, flex: 1 }} />
+        <button type="button" className="ci-act" onClick={() => { setMode("select"); onChange(""); }}>목록</button>
+      </div>
+    );
+  }
+  return (
+    <select style={inStyle} value={known ? value : ""} onChange={(e) => { if (e.target.value === "__add__") { setMode("custom"); onChange(CUSTOM_INS); } else onChange(e.target.value); }}>
+      <option value="">강사 선택…</option>
+      {list.map((i) => <option key={i.id} value={i.id}>{i.name}{i.subject ? " · " + i.subject : ""}</option>)}
+      <option value="__add__">+ 직접 입력…</option>
+    </select>
+  );
+}
+// 입력받은 강사 값(id 또는 직접입력)을 실제 강사 id 로 확정
+function resolveInstructor(v) {
+  if (typeof v === "string" && v.indexOf(CUSTOM_INS) === 0) return window.upsertInstructorByName(v.slice(CUSTOM_INS.length));
+  return v || "";
+}
+
+// 무료 대상 반 선택 — 학생 명부(또는 클래스인)에서 받은 반 목록을 드롭다운으로
+function ClassPicker({ value, onChange }) {
+  const [manual, setManual] = useStV("");
+  const [showManual, setShowManual] = useStV(false);
+  const chosen = String(value || "").split(/[,/·]/).map((s) => s.trim()).filter(Boolean);
+  const all = (window.rjClassNames && window.rjClassNames()) || [];
+  const avail = all.filter((c) => !chosen.includes(c));
+  const set = (arr) => onChange(arr.join(", "));
+  const add = (c) => { const n = (c || "").trim(); if (!n || chosen.includes(n)) return; set([...chosen, n]); };
+  const rm = (c) => set(chosen.filter((x) => x !== c));
+  return (
+    <div>
+      {chosen.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+          {chosen.map((c) => <span key={c} className="ci-chip">{c}<button onClick={() => rm(c)}><Icon name="close" size={11} /></button></span>)}
+        </div>
+      )}
+      <div style={{ display: "flex", gap: 8 }}>
+        <select style={{ ...inStyle, flex: 1 }} value="" onChange={(e) => add(e.target.value)}>
+          <option value="">{avail.length ? "반 선택해서 추가…" : "선택할 반이 없습니다"}</option>
+          {avail.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <button type="button" className="ci-act" onClick={() => setShowManual((s) => !s)}><Icon name="edit" size={12} /> 직접</button>
+      </div>
+      {showManual && (
+        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+          <input value={manual} onChange={(e) => setManual(e.target.value)} placeholder="반 이름 직접 입력" style={{ ...inStyle, flex: 1 }} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(manual); setManual(""); } }} />
+          <button type="button" className="ci-act navy" onClick={() => { add(manual); setManual(""); }}><Icon name="plus" size={12} /> 추가</button>
+        </div>
+      )}
+      {all.length === 0 && (
+        <p style={{ fontSize: 11, color: "var(--ci-muted)", margin: "7px 0 0", lineHeight: 1.5 }}>아직 등록된 반이 없습니다 · 학생 관리에서 학생의 ‘학년·반’을 입력하거나 클래스인 명부를 연동하면 여기 목록에 자동으로 나타납니다.</p>
+      )}
+    </div>
+  );
+}
+
 function VodManager() {
   const { showToast } = useApp();
   const [, setTick] = useStV(0);
@@ -38,6 +105,7 @@ function VodManager() {
 
   const courses = window.COURSES || [];
   const connected = courses.filter((c) => c.showcaseId).length;
+  const membersN = courses.filter((c) => window.courseVisibility && window.courseVisibility(c) === "members").length;
 
   return (
     <div>
@@ -51,6 +119,8 @@ function VodManager() {
         <span className="ci-badge neutral"><Icon name="book" size={11} /> 전체 강좌 {courses.length}</span>
         <span className="ci-badge ok"><Icon name="check" size={11} /> 쇼케이스 연결 {connected}</span>
         <span className="ci-badge warn"><Icon name="clock" size={11} /> 미연결 {courses.length - connected}</span>
+        <span className="ci-badge navy"><Icon name="lock" size={11} /> 회원전용 {membersN}</span>
+        <span className="ci-badge ok"><Icon name="signal" size={11} /> 공개·샘플 {courses.length - membersN}</span>
       </div>
 
       {adding && <VodAddForm onClose={() => setAdding(false)} onAdded={(id) => { setAdding(false); refresh(); setEditId(id); showToast("강좌가 개설되었습니다"); }} />}
@@ -65,6 +135,7 @@ function VodManager() {
 
       <p style={{ marginTop: 18, fontSize: 12.5, color: "var(--ci-muted)", lineHeight: 1.7 }}>
         · <strong>등록생 무료</strong>는 <strong>학생 관리</strong> 탭에서 해당 학생에게 강좌를 배정하면 적용됩니다.<br />
+        · <strong>공개 범위</strong>: ‘전체공개·샘플’은 누구나 보는 공개 강의 메뉴에, ‘회원전용·진짜 강의’는 로그인한 학생 대시보드에만 노출됩니다.<br />
         · 쇼케이스 안 강의 <strong>순서 변경</strong>은 Vimeo 쇼케이스에서 하면 사이트에 그대로 반영됩니다.<br />
         · Vimeo 영상 설정에서 <strong>도메인 제한</strong>을 걸면 우리 사이트에서만 재생됩니다.
       </p>
@@ -76,29 +147,38 @@ function VodCourseRow({ course, open, onToggle, onChange, showToast }) {
   const ins = findInstructor(course.instructor);
   const subj = findSubject(course.subject);
   const custom = window.isCustomCourse(course.id);
-  const showcaseId = course.showcaseId || "";
+  const initLink = course.showcaseId ? window.showcaseUrl(course.showcaseId)
+    : course.vimeoId ? window.videoUrl(course.vimeoId, course.vimeoHash) : "";
 
   const [form, setForm] = useStV({
-    showcaseInput: showcaseId ? window.showcaseUrl(showcaseId) : "",
+    showcaseInput: initLink,
     thumb: course.thumb || "",
     title: course.title || "",
     level: course.level || "",
+    instructor: course.instructor || "",
+    className: course.classNames || course.className || "",
     salePrice: course.salePrice || course.recordingPrice || 0,
     isFree: !!course.isFree,
+    visibility: window.courseVisibility ? window.courseVisibility(course) : "public",
   });
   const up = (k, v) => setForm((f) => ({ ...f, [k]: v }));
-  const parsedId = window.parseShowcaseId(form.showcaseInput);
+  const media = window.parseVimeoMedia(form.showcaseInput);
 
   const save = () => {
     const patch = {
-      showcaseId: parsedId,
+      showcaseId: media.type === "showcase" ? media.id : "",
+      vimeoId: media.type === "video" ? media.id : "",
+      vimeoHash: media.type === "video" ? (media.hash || "") : "",
       thumb: form.thumb || undefined,
       title: form.title.trim() || course.title,
       level: form.level.trim(),
+      instructor: resolveInstructor(form.instructor),
+      classNames: form.className.trim(),
       salePrice: Number(form.salePrice) || 0,
       price: Number(form.salePrice) || 0,
       recordingPrice: Number(form.salePrice) || 0,
       isFree: !!form.isFree,
+      visibility: form.visibility === "members" ? "members" : "public",
     };
     window.setCourseOverride(course.id, patch);
     onChange();
@@ -130,10 +210,15 @@ function VodCourseRow({ course, open, onToggle, onChange, showToast }) {
           <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
             {course.showcaseId
               ? <span className="ci-badge ok" style={{ fontSize: 10.5 }}><Icon name="check" size={10} /> 쇼케이스 연결됨</span>
-              : <span className="ci-badge warn" style={{ fontSize: 10.5 }}>쇼케이스 미연결</span>}
+              : course.vimeoId
+                ? <span className="ci-badge ok" style={{ fontSize: 10.5 }}><Icon name="check" size={10} /> 영상 연결됨</span>
+                : <span className="ci-badge warn" style={{ fontSize: 10.5 }}>영상 미연결</span>}
             {course.isFree
               ? <span className="ci-badge ok" style={{ fontSize: 10.5 }}>전체 무료</span>
               : <span className="ci-badge neutral" style={{ fontSize: 10.5 }}>{formatKRW(course.salePrice || course.recordingPrice || 0)}</span>}
+            {window.courseVisibility && window.courseVisibility(course) === "members"
+              ? <span className="ci-badge navy" style={{ fontSize: 10.5 }}><Icon name="lock" size={10} /> 회원전용</span>
+              : <span className="ci-badge ok" style={{ fontSize: 10.5 }}><Icon name="signal" size={10} /> 전체공개(샘플)</span>}
             <span style={{ fontSize: 12, color: "var(--ci-muted)" }}>{ins?.name || "강사 미지정"}</span>
           </div>
         </div>
@@ -165,16 +250,18 @@ function VodCourseRow({ course, open, onToggle, onChange, showToast }) {
           {/* 필드 */}
           <div style={{ display: "grid", gap: 14 }}>
             <div>
-              <label className="vod-lab">Vimeo 쇼케이스 링크</label>
+              <label className="vod-lab">Vimeo 링크 — 쇼케이스 또는 단일 영상</label>
               <input value={form.showcaseInput} onChange={(e) => up("showcaseInput", e.target.value)}
-                placeholder="https://vimeo.com/showcase/12345678 (또는 임베드 코드 붙여넣기)"
+                placeholder="https://vimeo.com/showcase/123  또는  https://vimeo.com/987654321"
                 style={inStyle} />
               <div style={{ marginTop: 6, fontSize: 12 }}>
                 {form.showcaseInput
-                  ? (parsedId
-                    ? <span style={{ color: "var(--ci-ok)" }}><Icon name="check" size={11} /> 인식됨 · ID {parsedId} — <a href={window.showcaseUrl(parsedId)} target="_blank" rel="noreferrer" style={{ color: "var(--ci-navy)", fontWeight: 700 }}>미리보기</a></span>
-                    : <span style={{ color: "var(--ci-bad)" }}>링크에서 쇼케이스 ID를 찾지 못했어요 · vimeo.com/showcase/숫자 형태인지 확인</span>)
-                  : <span style={{ color: "var(--ci-muted)" }}>쇼케이스 링크를 붙여넣으면 그 안의 강의들이 자동으로 나열됩니다</span>}
+                  ? (media.type === "showcase"
+                    ? <span style={{ color: "var(--ci-ok)" }}><Icon name="check" size={11} /> 쇼케이스 인식됨 · ID {media.id} — <a href={window.showcaseUrl(media.id)} target="_blank" rel="noreferrer" style={{ color: "var(--ci-navy)", fontWeight: 700 }}>미리보기</a></span>
+                    : media.type === "video"
+                      ? <span style={{ color: "var(--ci-ok)" }}><Icon name="check" size={11} /> 단일 영상 인식됨 · ID {media.id}{media.hash ? " · 비공개해시 " + media.hash : ""} — <a href={window.videoUrl(media.id, media.hash)} target="_blank" rel="noreferrer" style={{ color: "var(--ci-navy)", fontWeight: 700 }}>미리보기</a></span>
+                      : <span style={{ color: "var(--ci-bad)" }}>링크에서 Vimeo ID를 찾지 못했어요 · vimeo.com/숫자 또는 showcase/숫자 형태인지 확인</span>)
+                  : <span style={{ color: "var(--ci-muted)" }}>쇼케이스(여러 강의) 또는 단일 영상 링크를 붙여넣으면 그 강좌 페이지에 자동으로 연결됩니다</span>}
               </div>
             </div>
 
@@ -189,6 +276,19 @@ function VodCourseRow({ course, open, onToggle, onChange, showToast }) {
               </div>
             </div>
 
+            <div>
+              <label className="vod-lab">담당 강사</label>
+              <InstructorPicker value={form.instructor} onChange={(v) => up("instructor", v)} />
+            </div>
+
+            <div>
+              <label className="vod-lab">무료 대상 반 <span style={{ color: "var(--ci-ok)", fontWeight: 700 }}>(이 반 학생은 자동 무료)</span></label>
+              <ClassPicker value={form.className} onChange={(v) => up("className", v)} />
+              <p style={{ fontSize: 11, color: "var(--ci-muted)", margin: "6px 0 0", lineHeight: 1.5 }}>
+                학생 관리에서 학생의 <strong>‘학년·반’</strong>이 여기 지정한 반과 같으면, 배정하지 않아도 이 강의를 무료로 시청합니다 · 비워두면 개별 배정·구매로만 열립니다.
+              </p>
+            </div>
+
             <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "end" }}>
               <div>
                 <label className="vod-lab">판매가 (원)</label>
@@ -198,6 +298,25 @@ function VodCourseRow({ course, open, onToggle, onChange, showToast }) {
               <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13.5, fontWeight: 700, color: "var(--ci-navy)", height: 40 }}>
                 <input type="checkbox" checked={form.isFree} onChange={(e) => up("isFree", e.target.checked)} /> 전체 무료 공개
               </label>
+            </div>
+
+            <div>
+              <label className="vod-lab">공개 범위</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button type="button" onClick={() => up("visibility", "public")}
+                  className={"ci-act" + (form.visibility !== "members" ? " navy" : "")} style={{ flex: 1, justifyContent: "center" }}>
+                  <Icon name="signal" size={12} /> 전체공개 · 샘플
+                </button>
+                <button type="button" onClick={() => up("visibility", "members")}
+                  className={"ci-act" + (form.visibility === "members" ? " navy" : "")} style={{ flex: 1, justifyContent: "center" }}>
+                  <Icon name="lock" size={12} /> 회원전용 · 진짜 강의
+                </button>
+              </div>
+              <p style={{ fontSize: 11, color: "var(--ci-muted)", margin: "7px 0 0", lineHeight: 1.5 }}>
+                {form.visibility === "members"
+                  ? "· 공개 ‘강의’ 메뉴에서 숨김 — 로그인한 학생 대시보드에서만 보입니다."
+                  : "· 누구나 볼 수 있는 공개 ‘강의’ 메뉴에 노출됩니다 (샘플·환영 강의용)."}
+              </p>
             </div>
 
             <div style={{ display: "flex", gap: 8, justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
@@ -217,9 +336,9 @@ function VodCourseRow({ course, open, onToggle, onChange, showToast }) {
 }
 
 function VodAddForm({ onClose, onAdded }) {
-  const [f, setF] = useStV({ title: "", subject: (SUBJECTS[0] || {}).id || "", instructor: (INSTRUCTORS[0] || {}).id || "", level: "", salePrice: 0, showcaseInput: "" });
+  const [f, setF] = useStV({ title: "", subject: (SUBJECTS[0] || {}).id || "", instructor: (INSTRUCTORS[0] || {}).id || "", level: "", className: "", salePrice: 0, showcaseInput: "", visibility: "members" });
   const up = (k, v) => setF((p) => ({ ...p, [k]: v }));
-  const parsedId = window.parseShowcaseId(f.showcaseInput);
+  const media = window.parseVimeoMedia(f.showcaseInput);
 
   const create = () => {
     if (!f.title.trim()) { alert("강좌명을 입력하세요"); return; }
@@ -227,13 +346,18 @@ function VodAddForm({ onClose, onAdded }) {
     const n = String((window.COURSES || []).length + 1).padStart(2, "0");
     const course = {
       id, no: n, title: f.title.trim(),
-      subtitle: "", instructor: f.instructor, subject: f.subject,
+      subtitle: "", instructor: resolveInstructor(f.instructor), subject: f.subject,
       level: f.level.trim() || "전체", format: "VOD",
+      classNames: f.className.trim(),
       lessons: 0, hours: 0, weeks: 0,
       price: Number(f.salePrice) || 0, salePrice: Number(f.salePrice) || 0, recordingPrice: Number(f.salePrice) || 0,
       rating: 0, reviews: 0, enrolled: 0,
       color: VOD_COLORS[(window.COURSES || []).length % VOD_COLORS.length],
-      isFree: false, showcaseId: parsedId,
+      isFree: false,
+      showcaseId: media.type === "showcase" ? media.id : "",
+      vimeoId: media.type === "video" ? media.id : "",
+      vimeoHash: media.type === "video" ? (media.hash || "") : "",
+      visibility: f.visibility === "public" ? "public" : "members",
       description: "", syllabus: [], includes: [],
     };
     window.addCustomCourse(course);
@@ -256,22 +380,38 @@ function VodAddForm({ onClose, onAdded }) {
         </div>
         <div>
           <label className="vod-lab">담당 강사</label>
-          <select value={f.instructor} onChange={(e) => up("instructor", e.target.value)} style={inStyle}>
-            {INSTRUCTORS.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
-          </select>
+          <InstructorPicker value={f.instructor} onChange={(v) => up("instructor", v)} />
         </div>
         <div>
           <label className="vod-lab">레벨 · 대상</label>
           <input value={f.level} onChange={(e) => up("level", e.target.value)} placeholder="예: 고졸 검정고시" style={inStyle} />
+        </div>
+        <div style={{ gridColumn: "1 / -1" }}>
+          <label className="vod-lab">무료 대상 반 <span style={{ color: "var(--ci-ok)", fontWeight: 700 }}>(이 반 학생은 자동 무료)</span></label>
+          <ClassPicker value={f.className} onChange={(v) => up("className", v)} />
+          <p style={{ fontSize: 11, color: "var(--ci-muted)", margin: "6px 0 0", lineHeight: 1.5 }}>학생 관리의 ‘학년·반’이 같은 학생은 배정 없이 자동 무료 시청 · 비워두면 개별 배정/구매로만 열립니다.</p>
         </div>
         <div>
           <label className="vod-lab">판매가 (원)</label>
           <input type="number" value={f.salePrice} onChange={(e) => up("salePrice", e.target.value)} style={inStyle} />
         </div>
         <div style={{ gridColumn: "1 / -1" }}>
-          <label className="vod-lab">Vimeo 쇼케이스 링크 (선택 — 나중에 넣어도 됨)</label>
-          <input value={f.showcaseInput} onChange={(e) => up("showcaseInput", e.target.value)} placeholder="https://vimeo.com/showcase/12345678" style={inStyle} />
-          {f.showcaseInput && <div style={{ marginTop: 6, fontSize: 12, color: parsedId ? "var(--ci-ok)" : "var(--ci-bad)" }}>{parsedId ? "✓ 인식됨 · ID " + parsedId : "쇼케이스 ID를 찾지 못했어요"}</div>}
+          <label className="vod-lab">공개 범위</label>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button type="button" onClick={() => up("visibility", "public")}
+              className={"ci-act" + (f.visibility !== "members" ? " navy" : "")} style={{ flex: 1, justifyContent: "center" }}>
+              <Icon name="signal" size={12} /> 전체공개 · 샘플
+            </button>
+            <button type="button" onClick={() => up("visibility", "members")}
+              className={"ci-act" + (f.visibility === "members" ? " navy" : "")} style={{ flex: 1, justifyContent: "center" }}>
+              <Icon name="lock" size={12} /> 회원전용 · 진짜 강의
+            </button>
+          </div>
+        </div>
+        <div style={{ gridColumn: "1 / -1" }}>
+          <label className="vod-lab">Vimeo 링크 — 쇼케이스 또는 단일 영상 (선택 — 나중에 넣어도 됨)</label>
+          <input value={f.showcaseInput} onChange={(e) => up("showcaseInput", e.target.value)} placeholder="https://vimeo.com/showcase/123  또는  https://vimeo.com/987654321" style={inStyle} />
+          {f.showcaseInput && <div style={{ marginTop: 6, fontSize: 12, color: media.type ? "var(--ci-ok)" : "var(--ci-bad)" }}>{media.type === "showcase" ? "✓ 쇼케이스 인식됨 · ID " + media.id : media.type === "video" ? ("✓ 단일 영상 인식됨 · ID " + media.id + (media.hash ? " · 해시 " + media.hash : "")) : "Vimeo ID를 찾지 못했어요"}</div>}
         </div>
       </div>
       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 16 }}>

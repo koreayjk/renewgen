@@ -31,6 +31,33 @@ function parseShowcaseId(input) {
 function showcaseEmbedSrc(id) { return "https://vimeo.com/showcase/" + id + "/embed"; }
 function showcaseUrl(id) { return "https://vimeo.com/showcase/" + id; }
 
+// 통합 파서 — 쇼케이스 / 단일 영상(+비공개 해시) 무엇이든 인식
+//   showcase/123          → { type:'showcase', id:'123' }
+//   vimeo.com/987         → { type:'video', id:'987' }
+//   vimeo.com/987/abcd123 → { type:'video', id:'987', hash:'abcd123' }   (비공개 링크)
+//   player.vimeo.com/video/987?h=abcd  → { type:'video', id:'987', hash:'abcd' }
+//   <iframe src="…">      → 위 규칙으로 추출
+function parseVimeoMedia(input) {
+  if (!input) return { type: "", id: "", hash: "" };
+  const s = String(input).trim();
+  let m = s.match(/showcase\/(\d+)/i);
+  if (m) return { type: "showcase", id: m[1], hash: "" };
+  let id = "", hash = "";
+  m = s.match(/player\.vimeo\.com\/video\/(\d+)/i); if (m) id = m[1];
+  if (!id) { m = s.match(/vimeo\.com\/(?:manage\/videos\/)?(\d{6,})(?:\/(\w+))?/i); if (m) { id = m[1]; if (m[2]) hash = m[2]; } }
+  const hm = s.match(/[?&]h=(\w+)/i); if (hm) hash = hm[1];
+  if (!id && /^\d{6,}$/.test(s)) id = s;
+  if (id) return { type: "video", id, hash };
+  return { type: "", id: "", hash: "" };
+}
+
+// 단일 영상 임베드 URL (비공개 해시 지원)
+function videoEmbedSrc(id, hash) {
+  const h = hash ? ("h=" + hash + "&") : "";
+  return "https://player.vimeo.com/video/" + id + "?" + h + "title=0&byline=0&portrait=0";
+}
+function videoUrl(id, hash) { return "https://vimeo.com/" + id + (hash ? "/" + hash : ""); }
+
 // COURSES 에 저장값 병합 (제자리 mutate)
 function applyCoursesStore() {
   const C = window.COURSES;
@@ -60,9 +87,44 @@ function isCustomCourse(id) {
   return loadCoursesStore().custom.some((c) => c.id === id);
 }
 
+// 공개 범위 — "public"(샘플·누구나) 기본, "members"(진짜 강의·로그인 학생 전용)
+function courseVisibility(c) { return c && c.visibility === "members" ? "members" : "public"; }
+function publicCourses() { return (window.COURSES || []).filter((c) => courseVisibility(c) === "public"); }
+function memberCourses() { return (window.COURSES || []).filter((c) => courseVisibility(c) === "members"); }
+
 applyCoursesStore();
+
+// ──────────────────────────────────────────────────────────────────
+//  강사 저장소 — 관리자가 직접 추가한 강사(검정고시 등 맞는 강사가 없을 때)
+//   · INSTRUCTORS 가 비어 있어 선택지가 없을 때 이름만으로 강사를 만든다
+// ──────────────────────────────────────────────────────────────────
+const RJ_INSTR_KEY = "rj_instructors_store_v1";
+function loadInstrStore() { try { const a = JSON.parse(localStorage.getItem(RJ_INSTR_KEY) || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+function saveInstrStore(a) { try { localStorage.setItem(RJ_INSTR_KEY, JSON.stringify(a)); } catch (e) {} }
+function applyInstrStore() {
+  const I = window.INSTRUCTORS;
+  if (!Array.isArray(I)) return;
+  for (let i = I.length - 1; i >= 0; i--) if (I[i] && I[i].__custom) I.splice(i, 1);
+  for (const c of loadInstrStore()) I.push({ __custom: true, ...c });
+}
+// 이름으로 강사를 찾거나 새로 만들어 id 를 돌려준다
+function upsertInstructorByName(name) {
+  const nm = (name || "").trim();
+  if (!nm) return "";
+  const I = window.INSTRUCTORS || [];
+  const found = I.find((x) => (x.name || "").trim() === nm);
+  if (found) return found.id;
+  const id = "ins-" + Date.now().toString(36);
+  const rec = { id, name: nm, nameEn: "", initials: /[가-힣]/.test(nm) ? nm.slice(-2) : nm.slice(0, 2).toUpperCase(), subject: "", title: "" };
+  const store = loadInstrStore(); store.push(rec); saveInstrStore(store); applyInstrStore();
+  return id;
+}
+applyInstrStore();
 
 Object.assign(window, {
   loadCoursesStore, saveCoursesStore, parseShowcaseId, showcaseEmbedSrc, showcaseUrl,
+  parseVimeoMedia, videoEmbedSrc, videoUrl,
   applyCoursesStore, setCourseOverride, addCustomCourse, removeCustomCourse, isCustomCourse,
+  courseVisibility, publicCourses, memberCourses,
+  upsertInstructorByName, applyInstrStore,
 });

@@ -34,6 +34,8 @@ function SubscribePage() {
   const { navigate, showToast } = useApp();
   const firstOpen = TIERS.find((t) => t.state !== "sold");
   const [selected, setSelected] = useStateSub(firstOpen ? firstOpen.tier : TIERS[0].tier);
+  const [payOpen, setPayOpen] = useStateSub(false);
+  const selTier = TIERS.find((t) => t.tier === selected);
 
   return (
     <div className="page-enter">
@@ -123,7 +125,7 @@ function SubscribePage() {
                 {selected} · 월 {won(TIERS.find((t) => t.tier === selected).monthly)} <span style={{ color: "rgba(255,255,255,0.6)", fontWeight: 600, fontSize: 15 }}>(분기당 {won(TIERS.find((t) => t.tier === selected).quarter)})</span>
               </div>
             </div>
-            <button onClick={() => { window.demoSubscribe && window.demoSubscribe(); showToast(selected + " 구독 완료 — 모든 녹화본을 무료로 시청할 수 있습니다"); navigate("/mypage?tab=recordings"); }} style={{
+            <button onClick={() => setPayOpen(true)} style={{
               background: S_YEL, color: S_NAVY, fontWeight: 900, fontSize: 16, border: 0,
               height: 56, padding: "0 32px", borderRadius: 10, cursor: "pointer",
               display: "inline-flex", alignItems: "center", gap: 8, whiteSpace: "nowrap",
@@ -134,6 +136,53 @@ function SubscribePage() {
           </p>
         </div>
       </section>
+
+      {payOpen && (
+        <SubscribePayModal tier={selTier} onClose={() => setPayOpen(false)} />
+      )}
+    </div>
+  );
+}
+
+// 구독 결제 모달 — 토스페이먼츠 결제위젯(분기 결제)
+function SubscribePayModal({ tier, onClose }) {
+  const amount = tier.quarter;
+  const saveOrder = ({ orderId }) => {
+    window.savePendingOrder && window.savePendingOrder({
+      type: "subscribe",
+      tier: tier.tier,
+      total: amount, orderId,
+      orderName: "리뉴젠 ALL-PASS " + tier.tier + " (분기)",
+      info: { name: window.__rjUserName || "회원", email: "" },
+    });
+  };
+  return (
+    <div onClick={onClose} style={{
+      position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,18,38,0.55)",
+      display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+      backdropFilter: "blur(2px)",
+    }}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        background: "#fff", borderRadius: 18, width: "min(560px, 100%)", maxHeight: "90vh",
+        overflowY: "auto", padding: "28px 28px 24px", boxShadow: "0 24px 70px rgba(0,18,38,0.3)",
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div>
+            <div style={{ fontSize: 12.5, fontWeight: 800, color: S_MUTED, letterSpacing: "0.04em" }}>ALL-PASS · 구독 결제</div>
+            <div style={{ fontWeight: 900, fontSize: 24, letterSpacing: "-0.03em", color: S_NAVY, marginTop: 4 }}>{tier.tier} · 분기 {won(amount)}</div>
+          </div>
+          <button onClick={onClose} aria-label="닫기" style={{ background: "transparent", border: 0, cursor: "pointer", padding: 6 }}><Icon name="close" size={20} /></button>
+        </div>
+        <div style={{ height: 1, background: S_LINE, margin: "18px 0 22px" }} />
+        <window.TossPayPanel
+          amount={amount}
+          orderName={"리뉴젠 ALL-PASS " + tier.tier}
+          onBeforePay={saveOrder}
+          buttonLabel={won(amount) + " 구독 결제하기"}
+          accentBg={S_NAVY}
+          accentInk="#fff"
+        />
+      </div>
     </div>
   );
 }

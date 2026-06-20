@@ -4,7 +4,19 @@
 const { useState: useSt, useEffect: useEf, useRef: useRf } = React;
 
 // ── ClassIn connection banner (Login/identity) ─────────────────────
-function ConnBanner() {
+// student=true → 학생에게는 SID·Secret 등 내부 연동값을 숨기고 안심 문구만 노출
+function ConnBanner({ student }) {
+  if (student) {
+    return (
+      <div className="ci-conn">
+        <div className="ci-conn-logo"><span className="mark">in</span> ClassIn 연동</div>
+        <div className="ci-conn-item"><span className="k">출석 체크</span><span className="v">자동</span></div>
+        <div className="ci-conn-item"><span className="k">강의 녹화</span><span className="v">자동 저장</span></div>
+        <div className="ci-conn-item"><span className="k">자료 동기화</span><span className="v">{CLASSIN.lastSync}</span></div>
+        <span className="ci-conn-status"><span className="dot" /> 내 계정 연동 완료</span>
+      </div>
+    );
+  }
   return (
     <div className="ci-conn">
       <div className="ci-conn-logo"><span className="mark">in</span> ClassIn 연동</div>
@@ -81,7 +93,7 @@ function AppDownload() {
 }
 
 // ── Realtime data panel (Data Subscription) ────────────────────────
-function RealtimePanel() {
+function RealtimePanel({ student }) {
   const rt = REALTIME;
   const [handsUp, setHandsUp] = useSt(rt.handsUp);
   const [rewards, setRewards] = useSt(rt.rewards);
@@ -139,7 +151,7 @@ function RealtimePanel() {
         <div className="ci-kpi">
           <div className="lab"><span className="ico"><Icon name="chat" size={16} /></span> 도움 요청</div>
           <div className="num">{rt.helpSeeking}</div>
-          <div className="sub">관리자 전달됨</div>
+          <div className="sub">{student ? "강사에게 전달됨" : "관리자 전달됨"}</div>
         </div>
       </div>
 
@@ -198,8 +210,8 @@ function RealtimePanel() {
         </div>
       </div>
 
-      {/* roster: network / equipment / stage / mute */}
-      <div className="ci-card" style={{ marginTop: 16, overflow: "hidden" }}>
+      {/* roster: network / equipment / stage / mute — 관리자/강사 전용 (학생에게는 숨김) */}
+      {!student && <div className="ci-card" style={{ marginTop: 16, overflow: "hidden" }}>
         <div style={{ padding: "16px 18px", borderBottom: "1px solid var(--ci-line)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <strong style={{ fontSize: 14, fontWeight: 800 }}>수강생 상태 · Network · Equipment · Stage · Mute</strong>
           <span className="ci-badge navy">{ROSTER.filter((s) => s.online).length}명 접속</span>
@@ -228,13 +240,13 @@ function RealtimePanel() {
             </tbody>
           </table>
         </div>
-      </div>
+      </div>}
     </div>
   );
 }
 
 // ── Recordings panel (Broadcast / Recording File / Watching Data) ──
-function RecordingsPanel({ onPlay }) {
+function RecordingsPanel({ onPlay, student }) {
   return (
     <div>
       <CiHead title="다시보기 · 녹화본" api="Broadcast"
@@ -256,12 +268,14 @@ function RecordingsPanel({ onPlay }) {
                   {r.locked && <span className="ci-badge neutral" style={{ marginLeft: 8 }}><Icon name="lock" size={10} /> 잠금</span>}
                 </div>
               </div>
-              <div className="ci-rec-views"><b>{r.viewsPage.toLocaleString()}</b>페이지 재생</div>
-              <div className="ci-rec-views"><b>{r.viewsApp.toLocaleString()}</b>앱 재생</div>
+              {!student && <div className="ci-rec-views"><b>{r.viewsPage.toLocaleString()}</b>페이지 재생</div>}
+              {!student && <div className="ci-rec-views"><b>{r.viewsApp.toLocaleString()}</b>앱 재생</div>}
               <div style={{ display: "flex", gap: 6 }}>
                 {r.ready
-                  ? <><button className="ci-act navy" onClick={() => onPlay(r.courseId)}><Icon name="play" size={12} /> 재생</button>
-                       <button className="ci-act sm"><Icon name="download" size={12} /></button></>
+                  ? (student
+                      ? <button className="ci-act navy" onClick={() => onPlay(r.courseId)}><Icon name="play" size={12} /> 재생</button>
+                      : <><button className="ci-act navy" onClick={() => onPlay(r.courseId)}><Icon name="play" size={12} /> 재생</button>
+                       <button className="ci-act sm"><Icon name="download" size={12} /></button></>)
                   : <button className="ci-act" disabled style={{ opacity: 0.5 }}>처리 중…</button>}
               </div>
             </div>
@@ -273,15 +287,15 @@ function RecordingsPanel({ onPlay }) {
 }
 
 // ── Cloud disk panel (Cloud Disk API) ──────────────────────────────
-function CloudPanel() {
+function CloudPanel({ student }) {
   const [active, setActive] = useSt("f-math");
   const files = CLOUD_FILES.filter((f) => f.folder === active);
   const folder = CLOUD_FOLDERS.find((f) => f.id === active);
   return (
     <div>
       <CiHead title="강의자료 클라우드" api="Cloud Disk"
-        sub="라이브 판서·업로드·eeo.cn 동기화 자료를 한 곳에서 · 최대 5,000 폴더 / 깊이 15"
-        action={<button className="ci-act navy"><Icon name="upload" size={13} /> 파일 업로드</button>} />
+        sub={student ? "라이브 판서·강의자료를 한 곳에서 내려받으세요" : "라이브 판서·업로드·eeo.cn 동기화 자료를 한 곳에서 · 최대 5,000 폴더 / 깊이 15"}
+        action={student ? null : <button className="ci-act navy"><Icon name="upload" size={13} /> 파일 업로드</button>} />
       <div className="ci-cloud">
         <div className="ci-card ci-folders">
           {CLOUD_FOLDERS.map((f) => (
@@ -296,12 +310,12 @@ function CloudPanel() {
           <div className="ci-cloud-toolbar">
             <strong style={{ fontSize: 13.5, fontWeight: 800 }}>{folder?.name}</strong>
             <span className="ci-badge neutral">{files.length}개 파일</span>
-            <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+            {!student && <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
               <button className="ci-act sm"><Icon name="folder" size={12} /> 새 폴더</button>
               <button className="ci-act sm"><Icon name="refresh" size={12} /> 동기화</button>
-            </div>
+            </div>}
           </div>
-          <div className="ci-file-row head"><span></span><span>파일명</span><span>출처</span><span>크기</span><span>수정</span><span>작업</span></div>
+          <div className="ci-file-row head"><span></span><span>파일명</span><span>출처</span><span>크기</span><span>수정</span><span>{student ? "" : "작업"}</span></div>
           {files.map((f) => (
             <div key={f.id} className="ci-file-row">
               <span className={"ci-file-ic " + f.type}>{f.type.toUpperCase()}</span>
@@ -313,8 +327,8 @@ function CloudPanel() {
               <span style={{ color: "var(--ci-muted)", fontSize: 12 }}>{f.modified}</span>
               <span style={{ display: "flex", gap: 4 }}>
                 <button className="ci-act sm"><Icon name="download" size={11} /></button>
-                <button className="ci-act sm"><Icon name="edit" size={11} /></button>
-                <button className="ci-act sm"><Icon name="trash" size={11} /></button>
+                {!student && <button className="ci-act sm"><Icon name="edit" size={11} /></button>}
+                {!student && <button className="ci-act sm"><Icon name="trash" size={11} /></button>}
               </span>
             </div>
           ))}

@@ -312,6 +312,9 @@ const ACCOUNT = {
   },
 };
 
+// 예시 데이터 비움 — 실제 강좌/강사는 운영하면서 채웁니다
+COURSES.length = 0; REVIEWS.length = 0; NOTICES.length = 0; INSTRUCTORS.length = 0;
+
 Object.assign(window, {
   SUBJECTS, INSTRUCTORS, COURSES, REVIEWS, NOTICES, ACCOUNT,
 });

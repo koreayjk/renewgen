@@ -1,0 +1,40 @@
+name: Deploy to Cafe24 (SFTP + SSH Key)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: 🚀 Deploy to Cafe24 via SFTP
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🔑 Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.CAFE24_SSH_KEY }}" > ~/.ssh/cafe24_key
+          chmod 600 ~/.ssh/cafe24_key
+          ssh-keyscan -p 22 -H ${{ secrets.CAFE24_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: 📂 Deploy via rsync over SSH
+        run: |
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/cafe24_key -p 22 -o StrictHostKeyChecking=no" \
+            --exclude='.git*' \
+            --exclude='.github' \
+            --exclude='node_modules' \
+            --exclude='.env' \
+            --exclude='.env.*' \
+            --exclude='README.md' \
+            --exclude='*.md' \
+            --exclude='.DS_Store' \
+            ./ ${{ secrets.CAFE24_USER }}@${{ secrets.CAFE24_HOST }}:/www/
+
+      - name: 🧹 Cleanup
+        if: always()
+        run: rm -f ~/.ssh/cafe24_key

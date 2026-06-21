@@ -27,8 +27,8 @@ jobs:
         run: |
           lftp -c "
             set sftp:auto-confirm yes;
-            set sftp:connect-program 'ssh -a -x -i $HOME/.ssh/cafe24_key -o StrictHostKeyChecking=no';
-            open sftp://${{ secrets.CAFE24_USER }}@${{ secrets.CAFE24_HOST }};
+            set sftp:connect-program 'ssh -a -x -i $HOME/.ssh/cafe24_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null';
+            open -u '${{ secrets.CAFE24_USER }},dummy' sftp://${{ secrets.CAFE24_HOST }};
             mirror -R --delete --verbose \
               --exclude-glob .git \
               --exclude-glob .git/ \

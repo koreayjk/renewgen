@@ -19,21 +19,33 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.CAFE24_SSH_KEY }}" > ~/.ssh/cafe24_key
           chmod 600 ~/.ssh/cafe24_key
-          ssh-keyscan -p 22 -H ${{ secrets.CAFE24_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
 
-      - name: 📂 Deploy via rsync over SSH
+      - name: 📦 Install lftp
+        run: sudo apt-get update && sudo apt-get install -y lftp
+
+      - name: 📂 Deploy via lftp over SFTP
         run: |
-          rsync -avz --delete \
-            -e "ssh -i ~/.ssh/cafe24_key -p 22 -o StrictHostKeyChecking=no" \
-            --exclude='.git*' \
-            --exclude='.github' \
-            --exclude='node_modules' \
-            --exclude='.env' \
-            --exclude='.env.*' \
-            --exclude='README.md' \
-            --exclude='*.md' \
-            --exclude='.DS_Store' \
-            ./ ${{ secrets.CAFE24_USER }}@${{ secrets.CAFE24_HOST }}:/www/
+          lftp -c "
+            set sftp:auto-confirm yes;
+            set sftp:connect-program 'ssh -a -x -i $HOME/.ssh/cafe24_key -o StrictHostKeyChecking=no';
+            open sftp://${{ secrets.CAFE24_USER }}@${{ secrets.CAFE24_HOST }};
+            mirror -R --delete --verbose \
+              --exclude-glob .git \
+              --exclude-glob .git/ \
+              --exclude-glob .github/ \
+              --exclude-glob node_modules/ \
+              --exclude-glob .env \
+              --exclude-glob .env.* \
+              --exclude-glob .DS_Store \
+              --exclude-glob *.md \
+              --exclude-glob screenshots/ \
+              --exclude-glob uploads/ \
+              --exclude-glob classin-backend/ \
+              --exclude-glob .image-slots.state.json \
+              --exclude-glob .thumbnail \
+              --exclude-glob *.log \
+              ./ /www/;
+          "
 
       - name: 🧹 Cleanup
         if: always()

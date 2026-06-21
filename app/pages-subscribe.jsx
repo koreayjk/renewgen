@@ -31,11 +31,22 @@ const TIERS = [
 const won = (n) => (n / 10000) + "만원";
 
 function SubscribePage() {
-  const { navigate, showToast } = useApp();
+  const { navigate, showToast, user } = useApp();
   const firstOpen = TIERS.find((t) => t.state !== "sold");
   const [selected, setSelected] = useStateSub(firstOpen ? firstOpen.tier : TIERS[0].tier);
   const [payOpen, setPayOpen] = useStateSub(false);
   const selTier = TIERS.find((t) => t.tier === selected);
+
+  const startCheckout = () => {
+    if (!user) {
+      // 로그인 안 되어 있으면 회원가입/로그인으로 보낸 뒤 돌아와서 결제 한다
+      try { sessionStorage.setItem("rj-after-login", "#/subscribe"); } catch (e) {}
+      showToast && showToast("결제하려면 먼저 회원가입/로그인이 필요합니다");
+      navigate("/signup");
+      return;
+    }
+    setPayOpen(true);
+  };
 
   return (
     <div className="page-enter">
@@ -125,7 +136,7 @@ function SubscribePage() {
                 {selected} · 월 {won(TIERS.find((t) => t.tier === selected).monthly)} <span style={{ color: "rgba(255,255,255,0.6)", fontWeight: 600, fontSize: 15 }}>(분기당 {won(TIERS.find((t) => t.tier === selected).quarter)})</span>
               </div>
             </div>
-            <button onClick={() => setPayOpen(true)} style={{
+            <button onClick={startCheckout} style={{
               background: S_YEL, color: S_NAVY, fontWeight: 900, fontSize: 16, border: 0,
               height: 56, padding: "0 32px", borderRadius: 10, cursor: "pointer",
               display: "inline-flex", alignItems: "center", gap: 8, whiteSpace: "nowrap",

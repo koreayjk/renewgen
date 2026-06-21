@@ -17,11 +17,14 @@
 //   · window.TOSS_CONFIRM_API 를 배포된 승인 엔드포인트 URL 로 설정
 // ══════════════════════════════════════════════════════════════════
 
-// 토스 공개 '문서용' 테스트 결제위젯 클라이언트 키 (가입 없이 즉시 테스트 가능)
+// 토스 결제위젯 클라이언트 키 — 리뉴젠 아카데미 상점
+// ⚠️  '결제위젯 연동 키'(gck/gsk 형식)를 써야 합니다. 'API 개별 연동 키'(ck/sk)는 위젯 SDK와 호환되지 않습니다.
+//     토스 대시보드 → 개발자센터 → '결제위젯 연동 키' 섹션에서 발급.
+//   · 미발급 시: 토스 공식 '문서용 테스트 키'(test_gck_docs_…)를 사용 — 가입 없이 결제 흐름 확인 가능
 window.TOSS_CLIENT_KEY = window.TOSS_CLIENT_KEY || "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm";
-// 서버 승인 엔드포인트. 비어 있으면 데모(서버 없이) 승인 처리.
-//   예) window.TOSS_CONFIRM_API = "https://renewgen.com/classin/api/toss-confirm.php";
-window.TOSS_CONFIRM_API = window.TOSS_CONFIRM_API || "";
+// 서버 승인 엔드포인트 — Supabase Edge Function (toss-confirm)
+window.TOSS_CONFIRM_API = window.TOSS_CONFIRM_API ||
+  ((window.SUPABASE_URL || "https://psusaorzcvwvdthgbgjb.supabase.co") + "/functions/v1/toss-confirm");
 
 // ── SDK 동적 로드 ───────────────────────────────────────────────────
 let _tossSdkPromise = null;
@@ -64,6 +67,24 @@ window.makeTossOrderId = makeOrderId;
 // ── 대기 주문 저장 (리다이렉트 후에도 주문내용 유지) ──────────────────
 function savePendingOrder(order) {
   try { localStorage.setItem("rj-toss-pending", JSON.stringify({ ...order, ts: Date.now() })); } catch (e) {}
+  // Supabase orders 에도 INSERT (서버 승인 단계에서 금액 위변조 방지)
+  (async () => {
+    try {
+      const sb = window.getSupabase && window.getSupabase();
+      if (!sb) return;
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) return;
+      await sb.from("orders").insert({
+        order_id:   order.orderId,
+        user_id:    user.id,
+        user_email: (order.info && order.info.email) || user.email || null,
+        user_name:  (order.info && order.info.name)  || null,
+        course_ids: order.itemIds || [],
+        amount:     Math.round(Number(order.total) || 0),
+        status:     "pending",
+      });
+    } catch (e) { /* RLS 거절·중복 등은 무시 (Edge Function 폴백) */ }
+  })();
 }
 function readPendingOrder() {
   try { return JSON.parse(localStorage.getItem("rj-toss-pending") || "null"); } catch (e) { return null; }
@@ -81,9 +102,13 @@ async function confirmTossPayment({ paymentKey, orderId, amount }) {
     return { ok: true, demo: true, payment: { orderId, amount: Number(amount), paymentKey, status: "DONE", method: "테스트결제" } };
   }
   try {
+    // Supabase Edge Function 은 anon 키를 Authorization 헤더로 요구합니다
+    const headers = { "Content-Type": "application/json" };
+    const sb = window.getSupabase && window.getSupabase();
+    if (sb && window.SUPABASE_ANON_KEY) headers["Authorization"] = "Bearer " + window.SUPABASE_ANON_KEY;
     const res = await fetch(api, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ paymentKey, orderId, amount: Number(amount) }),
     });
     const json = await res.json().catch(() => ({}));

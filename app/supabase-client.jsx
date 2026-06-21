@@ -111,6 +111,41 @@ async function setProfileRoleById(id, role) {
 Object.assign(window, { getUserRole, setUserRole, listRoleGrants, isStaff, isAdmin, RJ_ADMIN_EMAILS, fetchProfileRole, fetchProfileRoleByEmail, setProfileRoleByEmail, fetchAllProfiles, setProfileRoleById });
 
 window.getSupabase = getSupabase;
+// 토스 결제 등 다른 모듈이 같은 키를 쓸 수 있도록 노출
+window.SUPABASE_URL = SUPABASE_URL;
+window.SUPABASE_ANON_KEY = SUPABASE_ANON_KEY;
+
+// ── 클래스인 계정 자동 동기화 ──────────────────────────────────────
+// 가입 직후(또는 최초 로그인 후) 1회 호출. 본인 JWT 로 Edge Function 을 호출하면
+// 함수가 본인 이메일로 클래스인 계정을 등록/연결하고 profiles.classin_uid 에 저장합니다.
+window.classinSyncSelf = async function ({ name, telephone, role } = {}) {
+  const sb = getSupabase(); if (!sb) return { ok: false };
+  try {
+    // 이미 연결된 경우(=classin_uid 가 있으면) 굳이 또 부르지 않음
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) return { ok: false };
+    const { data: prof } = await sb.from("profiles").select("classin_uid").eq("id", user.id).maybeSingle();
+    if (prof && prof.classin_uid) return { ok: true, skipped: true, uid: prof.classin_uid };
+
+    const { data: { session } } = await sb.auth.getSession();
+    const token = session && session.access_token;
+    if (!token) return { ok: false, error: "세션 없음" };
+
+    const url = SUPABASE_URL + "/functions/v1/classin-sync";
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type":  "application/json",
+        "Authorization": "Bearer " + token,
+        "apikey":        SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ name, telephone, role }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json.ok === false) return { ok: false, error: json.message || ("HTTP " + res.status) };
+    return { ok: true, uid: json.uid, existed: json.existed, matchedBy: json.matchedBy };
+  } catch (e) { return { ok: false, error: String(e) }; }
+};
 window.mapSbUser = mapSbUser;
 
 // ── 내 프로필 조회/수정 (계정 설정) ─────────────────────────────────

@@ -310,6 +310,23 @@ function fmtTime(s) {
 // 쇼케이스 플레이어 — Vimeo 쇼케이스(여러 강의) 임베드
 // ──────────────────────────────────────────────────────────────────
 function ShowcasePlayer({ course, ins, access, onBack }) {
+  const iframeRef = useRefP(null);
+  const goFull = () => {
+    const el = iframeRef.current;
+    if (!el) return;
+    const req = el.requestFullscreen
+      || el.webkitRequestFullscreen
+      || el.webkitEnterFullscreen   // iOS Safari
+      || el.mozRequestFullScreen
+      || el.msRequestFullscreen;
+    if (req) {
+      try { req.call(el); }
+      catch (e) { window.open(window.showcaseUrl(course.showcaseId), "_blank"); }
+    } else {
+      window.open(window.showcaseUrl(course.showcaseId), "_blank");
+    }
+  };
+
   if (!access) {
     return (
       <div style={{ minHeight: "calc(100vh - 72px)", background: "#000", color: "rgba(255,255,255,0.6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>
@@ -329,25 +346,31 @@ function ShowcasePlayer({ course, ins, access, onBack }) {
           <button className="btn btn-sm" style={{ background: "rgba(255,255,255,0.08)", color: "#fff", border: "1px solid rgba(255,255,255,0.2)" }} onClick={onBack}>
             <Icon name="arrowLeft" size={14} /> 강의 소개
           </button>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 12, fontWeight: 700, padding: "6px 12px", borderRadius: 999 }}>{badge}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 12, fontWeight: 700, padding: "6px 12px", borderRadius: 999 }}>{badge}</span>
+            <button className="btn btn-sm" style={{ background: "rgba(255,255,255,0.08)", color: "#fff", border: "1px solid rgba(255,255,255,0.2)" }} onClick={goFull} title="전체화면 (Esc로 해제)">
+              <span style={{ fontSize: 13, marginRight: 4 }}>⛶</span> 전체화면
+            </button>
+          </div>
         </div>
         <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
           <h1 style={{ fontFamily: "var(--font-kr-serif)", fontWeight: 500, fontSize: 30, letterSpacing: "-0.03em", margin: 0 }}>{course.title}</h1>
           <span style={{ fontSize: 13.5, color: "rgba(245,241,233,0.6)" }}>{ins?.name}{course.level ? " · " + course.level : ""}</span>
         </div>
-        <div style={{ borderRadius: 14, overflow: "hidden", border: "1px solid rgba(255,255,255,0.1)", background: "#0c0c0c" }}>
+        <div style={{ borderRadius: 14, overflow: "hidden", border: "1px solid rgba(255,255,255,0.1)", background: "#0c0c0c", position: "relative" }}>
           <iframe
+            ref={iframeRef}
             title={course.title}
             src={window.showcaseEmbedSrc(course.showcaseId)}
             style={{ width: "100%", height: "74vh", minHeight: 460, border: 0, display: "block" }}
             allow="autoplay; fullscreen; picture-in-picture"
             allowFullScreen
+            webkitallowfullscreen=""
+            mozallowfullscreen=""
           />
         </div>
         <p style={{ fontSize: 12.5, color: "rgba(245,241,233,0.5)", marginTop: 14, lineHeight: 1.7 }}>
-          강의 목록·순서는 Vimeo 쇼케이스를 따릅니다 · 목록에서 강의를 선택해 이어 시청하세요.<br />
-          영상이 보이지 않으면 Vimeo 쇼케이스가 <strong style={{ color: "rgba(245,241,233,0.75)" }}>공개(또는 Hide from Vimeo)</strong>이고, 영상 임베드가 <strong style={{ color: "rgba(245,241,233,0.75)" }}>이 사이트 도메인에서 허용</strong>되어 있는지 확인하세요 ·{" "}
-          <a href={window.showcaseUrl(course.showcaseId)} target="_blank" rel="noreferrer" style={{ color: "var(--rj-accent)", fontWeight: 700 }}>Vimeo에서 열기 →</a>
+          강의 목록·순서는 Vimeo 쇼케이스를 따릅니다 · 목록에서 강의를 선택해 이어 시청하세요 · <strong style={{ color: "rgba(245,241,233,0.75)" }}>전체화면</strong>은 우상단 버튼 또는 영상 우하단의 Vimeo 전체화면 아이콘으로 진입할 수 있습니다 (Esc로 해제).
         </p>
       </div>
     </div>
@@ -362,34 +385,22 @@ function LivePage({ courseId }) {
   const { navigate } = useApp();
   if (courseId) {
     const course = findCourse(courseId);
-    if (course) return <LiveEntry course={course} />;
+    if (course) {
+      // VOD 전용 강좌(쇼케이스/단일 영상 연결됨)는 라이브 강의실이 아닌 플레이어로
+      if (course.showcaseId || course.vimeoId) {
+        useEffectP(() => { navigate("/player/" + course.id); }, []);
+        return null;
+      }
+      return <LiveEntry course={course} />;
+    }
   }
   return <LiveSchedule />;
 }
 
 function LiveSchedule() {
   const { navigate } = useApp();
-  const today = COURSES.slice(0, 3);
-  const week = [
-    { day: "목 · MAY 22", live: [
-      { time: "19:00", course: COURSES[1], status: "upcoming" },
-      { time: "20:00", course: COURSES[0], status: "upcoming" },
-      { time: "21:00", course: COURSES[2], status: "upcoming" },
-    ]},
-    { day: "금 · MAY 23", live: [
-      { time: "19:00", course: COURSES[1], status: "upcoming" },
-      { time: "20:00", course: COURSES[3], status: "upcoming" },
-    ]},
-    { day: "토 · MAY 24", live: [
-      { time: "10:00", course: COURSES[2], status: "upcoming" },
-      { time: "14:00", course: COURSES[5], status: "upcoming" },
-      { time: "20:00", course: COURSES[0], status: "upcoming" },
-    ]},
-    { day: "일 · MAY 25", live: [
-      { time: "20:00", course: COURSES[3], status: "upcoming" },
-    ]},
-  ];
-
+  // 실제 라이브 강좌가 등록되면 강의 관리에서 자동으로 표시됩니다.
+  // 데모(미적분/문학·독서/구문독해) 콘텐츠 제거됨.
   return (
     <div className="page-enter">
       <section style={{ background: "var(--rj-ink)", color: "var(--rj-paper)", padding: "56px 0" }}>
@@ -404,54 +415,16 @@ function LiveSchedule() {
         </div>
       </section>
 
-      {/* Today */}
-      <section className="container-wide" style={{ paddingTop: 56 }}>
-        <window.SectionHead ko="지금 또는 오늘" en="Now & Today" />
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
-          {today.map((c, i) => (
-            <div key={c.id} className="card" style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span className={"chip " + (i === 0 ? "chip-live" : "chip-ink")}>{i === 0 ? "LIVE NOW" : ["19:00", "21:00"][i - 1] + " 시작"}</span>
-                <span className="label-cap" style={{ color: "var(--rj-muted)" }}>RENEWJEN LIVE</span>
-              </div>
-              <div>
-                <div style={{ fontFamily: "var(--font-kr-serif)", fontSize: 24, letterSpacing: "-0.025em", lineHeight: 1.2 }}>{c.title}</div>
-                <div style={{ fontSize: 13, color: "var(--rj-muted)", marginTop: 6 }}>{findInstructor(c.instructor)?.name} · {c.level}</div>
-              </div>
-              <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span className="num-en" style={{ fontSize: 11, letterSpacing: "0.12em", color: "var(--rj-muted)" }}>ROOM {c.classInRoomId}</span>
-                <button className="btn btn-primary btn-sm" onClick={() => navigate("/live/" + c.id)}>입장 <Icon name="arrow" size={12} /></button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Week schedule */}
       <section className="container-wide" style={{ paddingTop: 80, paddingBottom: 96 }}>
-        <window.SectionHead ko="이번 주 시간표" en="This Week's Schedule" />
-        <div style={{ border: "1px solid var(--rj-line)", borderRadius: "var(--rj-r)" }}>
-          {week.map((d, di) => (
-            <div key={di} style={{ borderTop: di === 0 ? "none" : "1px solid var(--rj-faint)", padding: "20px 28px", display: "grid", gridTemplateColumns: "180px 1fr", gap: 24 }}>
-              <div className="label-cap" style={{ fontSize: 12, marginTop: 8 }}>{d.day}</div>
-              <div style={{ display: "grid", gap: 8 }}>
-                {d.live.map((l, li) => {
-                  const ins = findInstructor(l.course.instructor);
-                  return (
-                    <div key={li} style={{ display: "grid", gridTemplateColumns: "80px 1fr auto auto", gap: 20, alignItems: "center", padding: "12px 0", borderTop: li === 0 ? "none" : "1px solid var(--rj-faint)" }}>
-                      <span className="num-en" style={{ fontSize: 18, fontWeight: 600 }}>{l.time}</span>
-                      <div>
-                        <div style={{ fontFamily: "var(--font-kr-serif)", fontSize: 18, letterSpacing: "-0.025em" }}>{l.course.title}</div>
-                        <div style={{ fontSize: 13, color: "var(--rj-muted)", marginTop: 2 }}>{ins?.name} · Room {l.course.classInRoomId}</div>
-                      </div>
-                      <span className="tag">{l.course.level}</span>
-                      <button className="btn btn-soft btn-sm" onClick={() => navigate("/live/" + l.course.id)}>알림 받기</button>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+        <div style={{ textAlign: "center", padding: "80px 24px", border: "1px dashed var(--rj-line)", borderRadius: "var(--rj-r)" }}>
+          <div style={{ fontFamily: "var(--font-kr-serif)", fontSize: 30, letterSpacing: "-0.025em", color: "var(--rj-ink)" }}>예정된 라이브가 없습니다.</div>
+          <p className="body-lg" style={{ color: "var(--rj-muted)", marginTop: 16, maxWidth: 520, marginLeft: "auto", marginRight: "auto" }}>
+            라이브 일정이 등록되면 여기에서 확인할 수 있습니다. 다시보기는 마이페이지의 ‘회원 전용 강의’에서 시청할 수 있습니다.
+          </p>
+          <div style={{ marginTop: 28, display: "flex", gap: 10, justifyContent: "center" }}>
+            <button className="btn btn-primary btn-lg" onClick={() => navigate("/courses")}>강의 둘러보기 <Icon name="arrow" size={14} /></button>
+            <button className="btn btn-ghost btn-lg" onClick={() => navigate("/mypage")}>마이페이지</button>
+          </div>
         </div>
       </section>
     </div>

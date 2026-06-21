@@ -21,6 +21,8 @@ function LoginPage() {
     const res = await signIn(email, password);
     setBusy(false);
     if (!res.ok) { showToast(res.error === "Invalid login credentials" ? "이메일 또는 비밀번호가 올바르지 않습니다" : (res.error || "로그인에 실패했습니다")); return; }
+    // 클래스인 미연결 사용자라면 이참에 연결 (한 번만 시도 후 캐시)
+    try { if (window.classinSyncSelf) window.classinSyncSelf({}); } catch (e) {}
     let dest = "/mypage";
     if (window.isAdmin && window.isAdmin({ email })) dest = "/admin";
     else if (window.isStaff && window.isStaff({ email })) dest = "/teacher";
@@ -28,6 +30,15 @@ function LoginPage() {
       const role = await window.fetchProfileRoleByEmail(email);
       if (role === "admin") dest = "/admin"; else if (role === "teacher") dest = "/teacher";
     }
+    // 결제하다가 로그인하러 온 경우 → 결제 페이지로 복귀
+    try {
+      const back = sessionStorage.getItem("rj-after-login");
+      if (back) {
+        sessionStorage.removeItem("rj-after-login");
+        window.location.hash = back;
+        return;
+      }
+    } catch (e) {}
     navigate(dest);
   };
 
@@ -166,6 +177,15 @@ function SignupPage() {
       navigate("/login");
       return;
     }
+    // 결제하다가 가입하러 온 경우 → 결제 페이지로 복귀
+    try {
+      const back = sessionStorage.getItem("rj-after-login");
+      if (back) {
+        sessionStorage.removeItem("rj-after-login");
+        window.location.hash = back;
+        return;
+      }
+    } catch (e) {}
     navigate(window.isStaff && window.isStaff({ email: data.email }) ? "/admin" : "/mypage");
   };
 

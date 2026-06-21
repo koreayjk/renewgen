@@ -307,9 +307,14 @@ function CourseDetailPage({ courseId }) {
               <div style={{ fontSize: 14, color: "var(--rj-muted)", marginTop: 4 }}>
                 {course.nextLive ? new Date(course.nextLive).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }) + " · 강의실 " + course.classInRoomId : "VOD 전용 강의"}
               </div>
-              {course.nextLive && (
+              {course.nextLive && !(course.showcaseId || course.vimeoId) && (
                 <button className="btn btn-primary btn-block" style={{ marginTop: 18 }} onClick={() => navigate("/live/" + course.id)}>
                   <Icon name="live" size={14} /> 실시간 수업 입장
+                </button>
+              )}
+              {(course.showcaseId || course.vimeoId) && (
+                <button className="btn btn-primary btn-block" style={{ marginTop: 18 }} onClick={() => navigate("/player/" + course.id)}>
+                  <Icon name="play" size={14} /> 강의 보기
                 </button>
               )}
               <div style={{ marginTop: 24, paddingTop: 24, borderTop: "1px solid var(--rj-faint)" }}>

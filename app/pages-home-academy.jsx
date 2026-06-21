@@ -409,11 +409,8 @@ function AcadCourses() {
 
 // ── Reviews ────────────────────────────────────────────────────────
 function AcadReviews() {
-  const items = [
-    { name: "이*수", grade: "고3 · 미적분 정수", body: "‘왜 이렇게 푸는지’가 처음으로 이해됐어요. 풀이를 외우던 시절로 돌아가고 싶지 않습니다.", pass: "서울대 수리과학부" },
-    { name: "정*은", grade: "고2 → 고3 · 문학·독서 정도", body: "비문학에 ‘방법’이 있다는 걸 처음 알았습니다. 14주 만에 등급이 두 칸 올랐어요.", pass: "고려대 경영" },
-    { name: "박*연", grade: "N수생 · 미적분 정수", body: "라이브 후 즉시 복습이 가능한 게 가장 컸어요. 강의실 안에서 질문도 바로 받아주시고, 첨삭이 매주 닫아줘서 안 밀려요.", pass: "연세대 의예" },
-  ];
+  const items = [];  // 실제 후기가 쌓이면 채웁니다 — 데모 콘텐츠 제거됨
+  if (!items.length) return null;
   return (
     <section style={{ background: "#fff", borderTop: "1px solid var(--acad-line)", borderBottom: "1px solid var(--acad-line)" }}>
       <div className="container-wide acad-section">

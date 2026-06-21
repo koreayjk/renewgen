@@ -5,56 +5,20 @@ const { useState: useStateX } = React;
 // ──────────────────────────────────────────────────────────────────
 // /instructors
 // ──────────────────────────────────────────────────────────────────
-// 리뉴젠 아카데미 선생님 — 과목별 (분기 시간표 강사진 기준)
-const ACAD_TEACHERS = {
-  "국어": [
-    { n: "수안", t: "문법 · 시문학", tag: "" },
-    { n: "로이스", t: "고전문학 · 독서", tag: "" },
-    { n: "사랑", t: "문학 · 화법과작문", tag: "" },
-  ],
-  "수학": [
-    { n: "카도쉬", t: "공통수학 · 미적분", tag: "BEST" },
-    { n: "대니", t: "확률과 통계 · 기하", tag: "" },
-    { n: "클라라", t: "중등 수학", tag: "" },
-  ],
-  "영어": [
-    { n: "문예나", t: "수능 영어 · 구문독해", tag: "BEST" },
-    { n: "아현", t: "수능특강 영어", tag: "" },
-    { n: "제이콥", t: "중등 영어 · 천일문", tag: "" },
-  ],
-  "사회": [
-    { n: "사랑", t: "통합사회 · 사회문화", tag: "" },
-    { n: "아이작", t: "사회 · 생활과윤리", tag: "" },
-  ],
-  "과학": [
-    { n: "두", t: "통합과학 · 생명과학", tag: "" },
-  ],
-  "토플": [
-    { n: "Ruti", t: "Speaking", tag: "" },
-    { n: "Henry", t: "Reading", tag: "" },
-    { n: "Darshna", t: "Writing", tag: "" },
-    { n: "Jinyoung", t: "Writing", tag: "신규" },
-  ],
-  "토익": [
-    { n: "에즈라", t: "LC · RC 입문~실전", tag: "" },
-    { n: "폴", t: "중급 LC · RC", tag: "" },
-  ],
-};
+// 리뉴젠 아카데미 선생님 — 실제 강사진을 다시 세팅하기 위해 비웠습니다.
+const ACAD_TEACHERS = {};
 const TEACHER_SUBJECTS = Object.keys(ACAD_TEACHERS);
 
 function InstructorsPage() {
   const NV = "var(--acad-navy)";
-  const NV2 = "var(--acad-navy-2)";
   const YL = "var(--acad-yellow)";
   const PP = "var(--acad-paper)";
   const LN = "var(--acad-line)";
   const MT = "var(--acad-muted)";
-  const [subj, setSubj] = useStateX("국어");
-  const list = ACAD_TEACHERS[subj] || [];
+  const { navigate } = useApp();
 
   return (
     <div className="page-enter">
-      {/* HERO */}
       <section style={{ background: NV, color: "#fff", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", inset: 0, backgroundImage: "url(assets/photos/p16.jpg)", backgroundSize: "cover", backgroundPosition: "center 30%", opacity: 0.26 }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(92deg, rgba(0,18,38,0.93) 0%, rgba(0,18,38,0.74) 55%, rgba(0,18,38,0.5) 100%)" }} />
@@ -65,41 +29,21 @@ function InstructorsPage() {
             리뉴젠 아카데미 <em style={{ fontStyle: "normal", color: YL }}>선생님</em>.
           </h1>
           <p style={{ fontSize: 17, lineHeight: 1.65, color: "rgba(255,255,255,0.78)", maxWidth: 600, marginTop: 18, fontWeight: 500 }}>
-            과목당 책임 강사가 라이브·다시보기·첨삭까지 한 사람이 담당합니다. 과목을 선택해 선생님을 만나보세요.
+            과목당 책임 강사가 라이브·다시보기·첨삭까지 한 사람이 담당합니다.
           </p>
         </div>
       </section>
 
-      {/* Subject tabs */}
-      <section style={{ background: PP, borderBottom: "1px solid " + LN, position: "sticky", top: 72, zIndex: 10 }}>
-        <div className="container-wide" style={{ display: "flex", gap: 4, overflowX: "auto" }}>
-          {TEACHER_SUBJECTS.map((s) => (
-            <button key={s} onClick={() => setSubj(s)} style={{
-              padding: "20px 22px", fontWeight: 800, fontSize: 16, cursor: "pointer", background: "transparent",
-              color: subj === s ? NV : MT, borderBottom: "3px solid " + (subj === s ? NV : "transparent"),
-              marginBottom: -1, whiteSpace: "nowrap",
-            }}>{s}<span style={{ fontFamily: "var(--font-en)", fontSize: 12, color: subj === s ? YL : LN, marginLeft: 6, fontWeight: 800 }}>{ACAD_TEACHERS[s].length}</span></button>
-          ))}
-        </div>
-      </section>
-
-      {/* Teacher grid */}
-      <section className="container-wide" style={{ paddingTop: 48, paddingBottom: 96 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 18 }}>
-          {list.map((tch, i) => (
-            <div key={i} style={{ background: PP, border: "1.5px solid " + LN, borderRadius: 16, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-              <div style={{ position: "relative", aspectRatio: "4/5", background: i % 2 === 0 ? NV : NV2, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-                <div style={{ position: "absolute", inset: 0, background: "radial-gradient(70% 60% at 50% 30%, rgba(255,214,10,0.16), transparent 70%)" }} />
-                <span style={{ fontWeight: 900, fontSize: 64, color: "rgba(255,255,255,0.94)", letterSpacing: "-0.04em", position: "relative" }}>{tch.n.slice(0, 1)}</span>
-                {tch.tag && <span style={{ position: "absolute", top: 12, left: 12, background: tch.tag === "신규" ? "#E5252A" : YL, color: tch.tag === "신규" ? "#fff" : NV, fontWeight: 900, fontSize: 11, padding: "4px 9px", borderRadius: 5 }}>{tch.tag}</span>}
-                <span style={{ position: "absolute", top: 12, right: 12, background: "rgba(0,0,0,0.45)", color: "#fff", fontWeight: 700, fontSize: 12, padding: "4px 9px", borderRadius: 5, backdropFilter: "blur(6px)", whiteSpace: "nowrap" }}>{subj}</span>
-              </div>
-              <div style={{ padding: "16px 18px 18px" }}>
-                <div style={{ fontWeight: 900, fontSize: 22, color: NV, letterSpacing: "-0.03em" }}>{tch.n}</div>
-                <div style={{ fontSize: 13.5, color: MT, fontWeight: 600, marginTop: 4 }}>{tch.t}</div>
-              </div>
-            </div>
-          ))}
+      <section className="container-wide" style={{ paddingTop: 96, paddingBottom: 120 }}>
+        <div style={{ textAlign: "center", padding: "80px 24px", background: PP, border: "1.5px dashed " + LN, borderRadius: 18 }}>
+          <span style={{ display: "inline-block", background: YL, color: NV, fontWeight: 900, fontSize: 12, padding: "6px 12px", borderRadius: 4 }}>강사진 준비중</span>
+          <div style={{ marginTop: 22, fontWeight: 900, fontSize: 32, letterSpacing: "-0.04em", color: NV }}>강사진을 곧 공개합니다.</div>
+          <p style={{ fontSize: 15, color: MT, marginTop: 14, maxWidth: 520, marginLeft: "auto", marginRight: "auto", lineHeight: 1.7, fontWeight: 500 }}>
+            강사 프로필을 정리해 새로 세팅하고 있습니다. 강의 라인업은 ‘강의’ 메뉴에서 먼저 확인할 수 있습니다.
+          </p>
+          <div style={{ marginTop: 26 }}>
+            <button onClick={() => navigate("/courses")} style={{ background: NV, color: "#fff", fontWeight: 800, fontSize: 14, padding: "12px 22px", borderRadius: 6, border: 0, cursor: "pointer" }}>강의 둘러보기</button>
+          </div>
         </div>
       </section>
     </div>
@@ -270,12 +214,15 @@ function NoticesList() {
 }
 
 function QnAList() {
-  const items = [
-    { q: "라이브 강의실에 입장이 안 됩니다.", a: "이미정 매니저", time: "2시간 전", answered: true, course: "미적분 정수", category: "기술 문의" },
-    { q: "주간 첨삭 결과는 언제 받아볼 수 있나요?", a: null, time: "5시간 전", answered: false, course: "문학·독서 정도", category: "수강 문의" },
-    { q: "다시보기 다운로드 정책 변경이 있나요?", a: "안내 매니저", time: "1일 전", answered: true, course: null, category: "정책" },
-    { q: "고2인데 N수반 강의 들어도 될까요?", a: "김지원 강사", time: "2일 전", answered: true, course: "확률과 통계", category: "수강 문의" },
-  ];
+  const items = [];  // 실제 질문이 등록되면 표시됩니다 — 데모 콘텐츠 제거됨
+  if (!items.length) {
+    return (
+      <div style={{ textAlign: "center", padding: "80px 24px", color: "var(--rj-muted)" }}>
+        <div style={{ fontSize: 15, fontWeight: 600, color: "var(--rj-ink)" }}>아직 등록된 질문이 없습니다.</div>
+        <div style={{ fontSize: 13, marginTop: 6 }}>회원가입 후 가장 먼저 질문해 보세요.</div>
+      </div>
+    );
+  }
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>

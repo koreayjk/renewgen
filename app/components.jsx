@@ -204,7 +204,12 @@ function AppProvider({ children, initialTweaks }) {
       // role 은 보안상 가입 시 서버 트리거가 'student' 로 강제 — 선생님 승급은 관리자가 처리
       try { await sb.from("profiles").upsert({ id: data.user.id, email, name, grade, school, subject, age: age ? Number(age) : null, phone: phone || null }); } catch (e) {}
     }
-    if (data.session) { setUser(window.mapSbUser(data.user)); return { ok: true }; }
+    if (data.session) {
+      setUser(window.mapSbUser(data.user));
+      // 클래스인에 자동 학생 계정 등록(이메일 매핑) — 실패해도 가입은 성공으로 처리
+      try { if (window.classinSyncSelf) window.classinSyncSelf({ name, telephone: phone, role: role || "student" }); } catch (e) {}
+      return { ok: true };
+    }
     return { ok: true, needsConfirm: true }; // 이메일 확인이 켜져 있을 때
   };
 

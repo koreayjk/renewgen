@@ -10,9 +10,86 @@ const DASH_TABS = [
   ["report",     "성적표",        "Report Card"],
   ["homework",   "과제",          "Homework"],
   ["exam",       "시험",          "Exam"],
-  ["recordings", "다시보기",       "Recordings"],
+  ["courses",    "강의",          "Courses"],
   ["cloud",      "강의자료",       "Cloud Disk"],
 ];
+
+// 학생이 시청 가능한 모든 VOD 강좌 (관리자 명부 부여 · 구매 · 구독 · staff · 무료)
+function myAccessibleCourses(user) {
+  if (!user) return [];
+  const isStaff = window.isStaff && window.isStaff(user);
+  const demo = (window.demoAccessState && window.demoAccessState()) || { sub: false, courses: [] };
+  const all = (window.COURSES || []).filter((c) => c.showcaseId || c.vimeoId);
+  if (isStaff || demo.sub) return all;
+  return all.filter((c) => {
+    if (c.isFree) return true;
+    if ((demo.courses || []).includes(c.id)) return true;
+    if (window.rosterGrant && window.rosterGrant(user, c)) return true;
+    return false;
+  });
+}
+
+// 학생 "강의" 탭 — 관리자가 올린 모든 VOD 강좌 목록
+function StudentCoursesPanel({ user, navigate }) {
+  const all = (window.COURSES || []).filter((c) => c.showcaseId || c.vimeoId);
+  if (all.length === 0) {
+    return (
+      <div>
+        <CiHead title="강의 · Courses" api="Catalog" sub="관리자가 강좌를 등록하면 여기에서 시청·구매할 수 있습니다" />
+        <div className="ci-card ci-card-pad" style={{ textAlign: "center", padding: "56px 24px", color: "var(--ci-muted)" }}>
+          <Icon name="folder" size={28} />
+          <p style={{ marginTop: 12, fontWeight: 700 }}>아직 등록된 강의가 없습니다.</p>
+        </div>
+      </div>
+    );
+  }
+  const demo = (window.demoAccessState && window.demoAccessState()) || { sub: false, courses: [] };
+  const isStaff = window.isStaff && window.isStaff(user);
+  const canWatch = (c) => isStaff || c.isFree || demo.sub
+    || (demo.courses || []).includes(c.id)
+    || (window.rosterGrant && !!window.rosterGrant(user, c));
+
+  return (
+    <div>
+      <CiHead title="강의 · Courses" api="Catalog"
+        sub="내가 시청 가능한 강의는 ‘강의 보기’, 그 외 강의는 구매 후 시청할 수 있습니다" />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
+        {all.map((c) => {
+          const ins = findInstructor(c.instructor);
+          const subj = findSubject(c.subject);
+          const watchable = canWatch(c);
+          return (
+            <div key={c.id} className="ci-card" style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
+              {c.thumb && <div style={{ aspectRatio: "16/9", background: "var(--ci-bg-2)", overflow: "hidden" }}>
+                <img src={c.thumb} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              </div>}
+              <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  {subj && <span className="ci-badge navy" style={{ fontSize: 10.5 }}>{subj.ko}</span>}
+                  {watchable
+                    ? <span className="ci-badge ok" style={{ fontSize: 10.5 }}><Icon name="check" size={10} /> 시청 가능</span>
+                    : <span className="ci-badge neutral" style={{ fontSize: 10.5 }}><Icon name="lock" size={10} /> 결제 필요</span>}
+                </div>
+                <div>
+                  <strong style={{ fontWeight: 900, fontSize: 16.5, letterSpacing: "-0.03em", display: "block", lineHeight: 1.3 }}>{c.title}</strong>
+                  <span style={{ fontSize: 12.5, color: "var(--ci-muted)" }}>{ins?.name || ""}{c.level ? (ins?.name ? " · " : "") + c.level : ""}</span>
+                </div>
+                <div style={{ marginTop: "auto", display: "flex", gap: 8, alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ fontWeight: 800, fontSize: 14, color: watchable ? "var(--ci-muted)" : "var(--ci-ink)" }}>
+                    {c.isFree ? "무료" : formatKRW(c.salePrice || c.price || c.recordingPrice || 0)}
+                  </span>
+                  {watchable
+                    ? <button className="ci-act navy" onClick={() => navigate("/player/" + c.id)}><Icon name="play" size={13} /> 강의 보기</button>
+                    : <button className="ci-act navy" onClick={() => navigate("/courses/" + c.id)}><Icon name="lock" size={13} /> 결제하고 보기</button>}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function MyPage() {
   const { navigate, user, login, logout, route } = useApp();
@@ -119,20 +196,22 @@ function MyPage() {
 
             {/* learning KPIs */}
             <div className="ci-kpis">
-              <div className="ci-kpi accent"><div className="lab"><span className="ico"><Icon name="book" size={16} /></span> 수강 중</div><div className="num">{enrolled.length}<small>강의</small></div><div className="sub">이번 주 6.4시간 학습</div></div>
-              <div className="ci-kpi"><div className="lab"><span className="ico"><Icon name="check" size={16} /></span> 평균 출석률</div><div className="num">94<small>%</small></div><div className="sub">최근 30일</div></div>
-              <div className="ci-kpi"><div className="lab"><span className="ico"><Icon name="trophy" size={16} /></span> 누적 트로피</div><div className="num">128</div><div className="sub">상위 12%</div></div>
-              <div className="ci-kpi"><div className="lab"><span className="ico"><Icon name="hand" size={16} /></span> 손들기·질문</div><div className="num">37</div><div className="sub">이번 시즌</div></div>
-              <div className="ci-kpi"><div className="lab"><span className="ico"><Icon name="signal" size={16} /></span> 연속 학습</div><div className="num">14<small>일</small></div><div className="sub">스트릭 유지 중</div></div>
+              <div className="ci-kpi accent"><div className="lab"><span className="ico"><Icon name="book" size={16} /></span> 수강 중</div><div className="num">{enrolled.length}<small>강의</small></div><div className="sub">{enrolled.length ? "학습 진행 중" : "아직 등록된 강의가 없습니다"}</div></div>
+              <div className="ci-kpi"><div className="lab"><span className="ico"><Icon name="check" size={16} /></span> 평균 출석률</div><div className="num">—</div><div className="sub">데이터 집계 대기</div></div>
+              <div className="ci-kpi"><div className="lab"><span className="ico"><Icon name="trophy" size={16} /></span> 누적 트로피</div><div className="num">—</div><div className="sub">참여 점수</div></div>
+              <div className="ci-kpi"><div className="lab"><span className="ico"><Icon name="hand" size={16} /></span> 손들기·질문</div><div className="num">—</div><div className="sub">이번 시즌</div></div>
+              <div className="ci-kpi"><div className="lab"><span className="ico"><Icon name="signal" size={16} /></span> 연속 학습</div><div className="num">—</div><div className="sub">스트릭</div></div>
             </div>
 
-            {/* auto-login entry */}
-            <div>
-              <CiHead title="원클릭 강의실 입장" api="Login URL"
-                sub="자동 로그인으로 계정·비밀번호 입력 없이 바로 입장합니다 · 시작 10분 전부터 활성화"
-                action={<button className="ci-act navy" onClick={() => navigate("/live")}><Icon name="calendar" size={13} /> 전체 시간표</button>} />
-              <EnterCards courses={todayLive} onEnter={(id) => navigate("/live/" + id + "?join=1")} />
-            </div>
+            {/* auto-login entry — only show when live courses exist today */}
+            {todayLive.length > 0 && (
+              <div>
+                <CiHead title="원클릭 강의실 입장" api="Login URL"
+                  sub="자동 로그인으로 계정·비밀번호 입력 없이 바로 입장합니다 · 시작 10분 전부터 활성화"
+                  action={<button className="ci-act navy" onClick={() => navigate("/live")}><Icon name="calendar" size={13} /> 전체 시간표</button>} />
+                <EnterCards courses={todayLive} onEnter={(id) => navigate("/live/" + id + "?join=1")} />
+              </div>
+            )}
 
             {/* enrolled progress */}
             <div>
@@ -159,8 +238,12 @@ function MyPage() {
                         </div>
                       </div>
                       <div style={{ display: "flex", gap: 8 }}>
-                        <button className="ci-act navy" onClick={() => navigate("/live/" + c.id)}><Icon name="live" size={13} /> 라이브 입장</button>
-                        <button className="ci-act" onClick={() => navigate("/player/" + c.id)}><Icon name="play" size={13} /> 이어보기</button>
+                        {c.showcaseId || c.vimeoId
+                          ? <button className="ci-act navy" onClick={() => navigate("/player/" + c.id)}><Icon name="play" size={13} /> 강의 보기</button>
+                          : <>
+                              <button className="ci-act navy" onClick={() => navigate("/live/" + c.id)}><Icon name="live" size={13} /> 라이브 입장</button>
+                              <button className="ci-act" onClick={() => navigate("/player/" + c.id)}><Icon name="play" size={13} /> 이어보기</button>
+                            </>}
                       </div>
                     </div>
                   );
@@ -168,26 +251,26 @@ function MyPage() {
               </div>
             </div>
 
-            {/* members-only real lineup — 로그인 학생에게만 보이는 진짜 강의 */}
-            {window.memberCourses && window.memberCourses().length > 0 && (
+            {/* my accessible courses — 학생이 시청 가능한 모든 VOD 강의 */}
+            {myAccessibleCourses(user).length > 0 && (
               <div>
-                <CiHead title="회원 전용 강의" api="Members Only"
-                  sub="로그인한 수강생에게만 공개되는 정규 라이브 강의입니다" />
+                <CiHead title="내 강의" api="My Courses"
+                  sub="결제 또는 수강 등록으로 시청 가능한 강의입니다" />
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
-                  {window.memberCourses().map((c) => {
+                  {myAccessibleCourses(user).map((c) => {
                     const ins = findInstructor(c.instructor);
                     return (
                       <div key={c.id} className="ci-card" style={{ padding: 18, display: "flex", flexDirection: "column", gap: 12 }}>
                         <div>
                           <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
-                            <span className="ci-badge navy">{findSubject(c.subject)?.ko}</span>
-                            <span className="ci-badge neutral" style={{ fontSize: 10.5 }}><Icon name="lock" size={10} /> 회원 전용</span>
+                            {findSubject(c.subject) && <span className="ci-badge navy">{findSubject(c.subject).ko}</span>}
+                            <span className="ci-badge ok" style={{ fontSize: 10.5 }}><Icon name="check" size={10} /> 시청 가능</span>
                           </div>
                           <strong style={{ fontWeight: 900, fontSize: 17, letterSpacing: "-0.03em", display: "block" }}>{c.title}</strong>
-                          <span style={{ fontSize: 12.5, color: "var(--ci-muted)" }}>{ins?.name}{c.level ? " · " + c.level : ""}</span>
+                          <span style={{ fontSize: 12.5, color: "var(--ci-muted)" }}>{ins?.name || ""}{c.level ? (ins?.name ? " · " : "") + c.level : ""}</span>
                         </div>
                         <div style={{ display: "flex", gap: 8, marginTop: "auto" }}>
-                          <button className="ci-act navy" onClick={() => navigate("/live/" + c.id)}><Icon name="live" size={13} /> 강의 입장</button>
+                          <button className="ci-act navy" onClick={() => navigate("/player/" + c.id)}><Icon name="play" size={13} /> 강의 보기</button>
                           <button className="ci-act" onClick={() => navigate("/courses/" + c.id)}>강의 정보</button>
                         </div>
                       </div>
@@ -214,7 +297,7 @@ function MyPage() {
         )}
         {tab === "homework" && <window.HomeworkPanel student />}
         {tab === "exam" && <window.ExamPanel />}
-        {tab === "recordings" && <RecordingsPanel student onPlay={(id) => navigate("/player/" + id)} />}
+        {tab === "courses" && <StudentCoursesPanel user={user} navigate={navigate} />}
         {tab === "cloud" && <CloudPanel student />}
 
         {tab === "account" && (

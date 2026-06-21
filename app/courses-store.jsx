@@ -87,9 +87,13 @@ function isCustomCourse(id) {
   return loadCoursesStore().custom.some((c) => c.id === id);
 }
 
-// 공개 범위 — "public"(샘플·누구나) 기본, "members"(진짜 강의·로그인 학생 전용)
+// 공개 범위 — 'public'(샘플·누구나)와 'members'(회원전용)로 표시되지만
+// /courses 메뉴에서는 둘 다 노출됩니다 (비수강생이 둘러보고 결제할 수 있게).
 function courseVisibility(c) { return c && c.visibility === "members" ? "members" : "public"; }
-function publicCourses() { return (window.COURSES || []).filter((c) => courseVisibility(c) === "public"); }
+function publicCourses() {
+  // VOD 강좌(쇼케이스 또는 단일 영상이 연결된)만 노출 — 데모/빈 강좌는 숨김
+  return (window.COURSES || []).filter((c) => c.showcaseId || c.vimeoId);
+}
 function memberCourses() { return (window.COURSES || []).filter((c) => courseVisibility(c) === "members"); }
 
 applyCoursesStore();

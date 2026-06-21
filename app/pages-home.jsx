@@ -4,25 +4,8 @@ const { useState: useStateHome } = React;
 
 function HomePage() {
   const { tweaks } = useApp();
-  // Academy style is a totally different design language — route to its own component.
-  if ((tweaks.homeStyle || "editorial") === "academy") {
-    return <HomeAcademy />;
-  }
-  const hero = tweaks.heroLayout || "split";
-  return (
-    <div className="page-enter">
-      {hero === "split" && <HeroSplit />}
-      {hero === "stack" && <HeroStack />}
-      {hero === "marquee" && <HeroMarquee />}
-      <HomeMarqueeBand />
-      <HomeFeaturedCourses />
-      <HomeWhy />
-      <HomeInstructors />
-      <HomeLive />
-      <HomeTestimonial />
-      <HomeCTA />
-    </div>
-  );
+  // 아카데미 톤이 기본. 다른 톤은 더 이상 사용하지 않음 — 모두 같은 페이지로.
+  return <HomeAcademy />;
 }
 
 // ─── Hero 1: Split editorial ────────────────────────────────────────

@@ -110,21 +110,32 @@ function SummaryRow({ label, value, muted, strike, accent, big }) {
 // /checkout — 3 steps
 // ──────────────────────────────────────────────────────────────────
 function CheckoutPage() {
-  const { navigate, cart, clearCart, user } = useApp();
+  const { navigate, cart, clearCart, user, showToast } = useApp();
   const [step, setStep] = useStateK(1); // 1: 정보, 2: 결제
   const [redir, setRedir] = useStateK(null); // 토스 복귀 처리: {phase:'confirming'|'done'|'fail', ...}
   const items = cart.map((c) => findCourse(c.courseId)).filter(Boolean);
+
+  // 토스 결제 복귀(rd) 중이 아니면 — 미로그인이면 회원가입으로
+  useEffectK(() => {
+    if (user) return;
+    const rd = window.readTossRedirect && window.readTossRedirect();
+    if (rd) return; // 결제 승인 도중에는 그대로 (복귀 재로그인 이슈 방지)
+    try { sessionStorage.setItem("rj-after-login", "#/checkout"); } catch (e) {}
+    if (showToast) showToast("결제하려면 먼저 회원가입/로그인이 필요합니다");
+    navigate("/signup");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const subtotal = items.reduce((s, c) => s + c.salePrice, 0);
   const bundle = items.length >= 2 ? Math.round(subtotal * 0.05) : 0;
   const total = subtotal - bundle;
 
   const [info, setInfo] = useStateK({
-    name: user?.name || "한도윤",
-    email: user?.email || "student@renewjen.kr",
-    phone: "010-1234-5678",
-    parent: "이미정",
-    parentPhone: "010-9876-5432",
+    name:  user?.name  || "",
+    email: user?.email || "",
+    phone: "",
+    parent: "",
+    parentPhone: "",
   });
 
   // 토스 결제창에서 복귀 → 서버 승인 처리
@@ -485,7 +496,7 @@ function CheckoutSuccess({ orderId, items, total, info, onGoMyPage, onGoCourses,
         <ol style={{ marginTop: 24, paddingLeft: 0, listStyle: "none", display: "grid", gap: 18 }}>
           {[
             ["01", "라이브 강의실 입장 코드", `결제하신 강의의 룸 코드를 ${info.email}로 발송했습니다.`],
-            ["02", "다음 라이브", "5월 22일 (목) 20:00 — 미적분 정수 1주차 OT"],
+            ["02", "다음 라이브", "마이페이지 ‘회원 전용 강의’에서 일정과 입장 코드를 확인할 수 있습니다."],
             ["03", "다시보기", "라이브 종료 후 5분 안에 ‘마이페이지’에 업로드됩니다."],
           ].map(([n, t, b]) => (
             <li key={n} style={{ display: "grid", gridTemplateColumns: "32px 1fr", gap: 14 }}>

@@ -25,7 +25,12 @@ function aiUsage() {
   if (s.krw == null) s.krw = 0;
   return s;
 }
-function aiBump(krw) { const s = aiUsage(); s.count += 1; s.krw += (krw || 0); try { localStorage.setItem("rj_ai_gen_usage", JSON.stringify(s)); } catch (e) {} return s; }
+function aiBump(krw, userId) {
+  const s = aiUsage(); s.count += 1; s.krw += (krw || 0);
+  try { localStorage.setItem("rj_ai_gen_usage", JSON.stringify(s)); } catch (e) {}
+  if (userId && window.rjPushAiUsage) window.rjPushAiUsage(userId, s.date, s.count, s.krw).catch(() => {});
+  return s;
+}
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const AI_GRADES = ["중1", "중2", "중3", "고1", "고2", "고3", "N수생"];
@@ -34,7 +39,7 @@ const AI_TYPES = [["mc", "객관식(5지선다)"], ["short", "단답형"], ["ox"
 const AI_COUNTS = [5, 10, 20, 30, 40, 50];
 
 function AIQuestionGen({ onAdd, defaultSubject }) {
-  const { showToast } = useApp();
+  const { showToast, user } = useApp();
   const [open, setOpen] = useStAi(false);
   const [grade, setGrade] = useStAi("고2");
   const [subject, setSubject] = useStAi(() => {
@@ -52,6 +57,15 @@ function AIQuestionGen({ onAdd, defaultSubject }) {
   const [lastRun, setLastRun] = useStAi(null);  // { questions, calls, inTok, outTok, usd, krw }
   const [usage, setUsage] = useStAi(() => aiUsage());
   const remaining = Math.max(0, AI_DAILY_LIMIT - usage.count);
+
+  // 클라우드(Supabase)에서 오늘 사용량 동기화 → 기기 바꿔도 하루 한도가 유지됨
+  React.useEffect(() => {
+    let alive = true;
+    if (user && user.id && window.rjSyncAiUsageFromCloud) {
+      window.rjSyncAiUsageFromCloud(user.id).then((r) => { if (alive && r && r.ok && r.usage) setUsage(r.usage); }).catch(() => {});
+    }
+    return () => { alive = false; };
+  }, [user && user.id]);
 
   const typeKo = (AI_TYPES.find(([k]) => k === type) || [])[1] || "객관식";
   const schemaFor = () => type === "mc"
@@ -115,7 +129,7 @@ function AIQuestionGen({ onAdd, defaultSubject }) {
     const usd = inTok * HAIKU_IN + outTok * HAIKU_OUT;
     const krw = usd * USD_KRW;
     setLastRun({ questions: collected.length, calls, inTok, outTok, usd, krw, short: collected.length < n });
-    const u = aiBump(krw); setUsage(u);
+    const u = aiBump(krw, user && user.id); setUsage(u);
     showToast && showToast(collected.length + "개 문항을 생성했습니다 · 예상 비용 약 ₩" + Math.round(krw));
   };
 

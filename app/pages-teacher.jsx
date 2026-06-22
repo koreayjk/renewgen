@@ -19,8 +19,19 @@ const TEACH_TABS = [
 function TeacherPage() {
   const { user, navigate, logout } = useApp();
   const [tab, setTab] = useStT("today");
+  const [, forceT] = useStT(0);
   const roster = window.TEACHER_ROSTER || [];
   const stats = window.rosterStats ? window.rosterStats(roster) : { n: 0, avgAtt: 0, avgExam: 0, highRisk: 0, watch: 0 };
+
+  // 과제·제출/채점을 클라우드(Supabase)에서 동기화 → 로컬 캐시 교체 후 재렌더
+  //   (미연결 시 no-op → 기존 로컬 동작 유지)
+  React.useEffect(() => {
+    let alive = true;
+    if (window.rjSyncAssignmentsFromCloud) {
+      window.rjSyncAssignmentsFromCloud().then((r) => { if (alive && r && r.ok) forceT((n) => n + 1); }).catch(() => {});
+    }
+    return () => { alive = false; };
+  }, []);
 
   // 접근 가드 (실서버) — staff 아니면 학습 대시보드로
   React.useEffect(() => {

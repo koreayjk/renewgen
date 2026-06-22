@@ -15,7 +15,10 @@ function loadCoursesStore() {
   } catch (e) {}
   return { overrides: {}, custom: [] };
 }
-function saveCoursesStore(s) { try { localStorage.setItem(RJ_COURSES_KEY, JSON.stringify(s)); } catch (e) {} }
+function saveCoursesStore(s) {
+  try { localStorage.setItem(RJ_COURSES_KEY, JSON.stringify(s)); } catch (e) {}
+  if (window.rjPushCoursesStore) window.rjPushCoursesStore(s).catch(() => {});
+}
 
 // 쇼케이스 ID 추출 — URL / 임베드코드 / 숫자 무엇이든 허용
 //   https://vimeo.com/showcase/12345678  ·  .../showcase/12345678/embed
@@ -104,7 +107,10 @@ applyCoursesStore();
 // ──────────────────────────────────────────────────────────────────
 const RJ_INSTR_KEY = "rj_instructors_store_v1";
 function loadInstrStore() { try { const a = JSON.parse(localStorage.getItem(RJ_INSTR_KEY) || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
-function saveInstrStore(a) { try { localStorage.setItem(RJ_INSTR_KEY, JSON.stringify(a)); } catch (e) {} }
+function saveInstrStore(a) {
+  try { localStorage.setItem(RJ_INSTR_KEY, JSON.stringify(a)); } catch (e) {}
+  if (window.rjPushInstrStore) window.rjPushInstrStore(a).catch(() => {});
+}
 function applyInstrStore() {
   const I = window.INSTRUCTORS;
   if (!Array.isArray(I)) return;

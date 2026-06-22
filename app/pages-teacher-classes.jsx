@@ -20,6 +20,16 @@ function ClassManager() {
   const [, force] = useStCls(0);
   const refresh = () => force((n) => n + 1);
 
+  // 클라우드(Supabase)에서 과제·제출/채점 동기화 → 로컬 캐시 교체 후 재렌더
+  //   (미연결 시 no-op → 기존 로컬 동작 유지)
+  React.useEffect(() => {
+    let alive = true;
+    if (window.rjSyncAssignmentsFromCloud) {
+      window.rjSyncAssignmentsFromCloud().then((r) => { if (alive && r && r.ok) refresh(); }).catch(() => {});
+    }
+    return () => { alive = false; };
+  }, []);
+
   const cls = window.findClass(classId);
   const roster = window.classRoster(classId);
   const assignments = window.listAssignments(classId);

@@ -110,15 +110,21 @@ function createAssignment({ classId, type, title, detail, due }) {
   const subs = {};
   (c ? c.studentIds : []).forEach((sid) => { subs[sid] = { status: "pending", score: null, comment: "" }; });
   const a = { id: "asg-" + Date.now().toString(36), classId, type: type || "homework", title, detail: detail || "", due: due || "", createdAt: new Date().toISOString(), submissions: subs };
-  list.push(a); saveAssignments(list); return a;
+  list.push(a); saveAssignments(list);
+  if (window.rjPushAssignmentToCloud) window.rjPushAssignmentToCloud(a).catch(() => {});
+  return a;
 }
 function updateSubmission(asgId, studentId, patch) {
   const list = loadAssignments();
   const a = list.find((x) => x.id === asgId); if (!a) return;
   a.submissions[studentId] = { ...(a.submissions[studentId] || { status: "pending", score: null, comment: "" }), ...patch };
   saveAssignments(list);
+  if (window.rjPushAssignmentToCloud) window.rjPushAssignmentToCloud(a).catch(() => {});
 }
-function deleteAssignment(asgId) { saveAssignments(loadAssignments().filter((a) => a.id !== asgId)); }
+function deleteAssignment(asgId) {
+  saveAssignments(loadAssignments().filter((a) => a.id !== asgId));
+  if (window.rjDeleteAssignmentFromCloud) window.rjDeleteAssignmentFromCloud(asgId).catch(() => {});
+}
 
 function asgStats(a) {
   const subs = Object.values(a.submissions || {});

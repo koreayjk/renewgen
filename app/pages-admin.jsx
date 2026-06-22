@@ -409,7 +409,14 @@ function stuList() {
   for (const uid in ov) if (!ids.has(uid)) merged.push({ uid, role: "student", status: "active", classes: 0, ...ov[uid] });
   return merged;
 }
-function stuPatch(uid, patch) { const ov = stuLoadOv(); ov[uid] = { ...(ov[uid] || {}), ...patch }; stuSaveOv(ov); }
+function stuPatch(uid, patch) {
+  const ov = stuLoadOv(); ov[uid] = { ...(ov[uid] || {}), ...patch }; stuSaveOv(ov);
+  // 클라우드 동기화 — 병합 명부에서 이메일을 찾아 함께 저장(본인 읽기 RLS용)
+  if (window.rjPushStudentToCloud) {
+    const email = (stuList().find((s) => s.uid === uid) || {}).email || ov[uid].email;
+    window.rjPushStudentToCloud(uid, ov[uid], email).catch(() => {});
+  }
+}
 // 로그인 이메일로 명부의 학생 레코드를 찾는다 (접근권 판정용 — access.jsx 에서 사용)
 function rjFindStudentByEmail(email) {
   const e = (email || "").trim().toLowerCase();
@@ -431,6 +438,7 @@ function stuAdd(s) {
   const uid = s.uid || ("RJ" + String(Date.now()).slice(-8));
   ov[uid] = { added: true, role: "student", status: "active", classes: 0, ...s };
   stuSaveOv(ov);
+  if (window.rjPushStudentToCloud) window.rjPushStudentToCloud(uid, ov[uid], ov[uid].email).catch(() => {});
   return uid;
 }
 // 월말평가 성적 연동 — 이름으로 회차별 평균 추이
@@ -459,6 +467,25 @@ function StudentManager({ isAdmin, onOpenReports }) {
   const [tick, setTick] = useStA(0);
   const refresh = () => setTick((t) => t + 1);
   const all = React.useMemo(() => stuList(), [tick]);
+
+  // 클라우드(Supabase)에서 학생 명부 동기화 → 로컬 캐시 교체 후 재렌더.
+  //   클라우드가 비어 있고 로컬에 기존 편집분이 있으면 → 최초 1회 자동 업로드(이관).
+  //   (미연결 시 no-op → 기존 로컬 동작 유지)
+  React.useEffect(() => {
+    let alive = true;
+    if (!window.rjSyncStudentsFromCloud) return;
+    window.rjSyncStudentsFromCloud().then((r) => {
+      if (!alive || !r || !r.ok) return;
+      if (r.loaded > 0) { refresh(); return; }
+      // 클라우드 비어있음 → 로컬 오버라이드를 이메일과 함께 이관
+      if (window.rjPushStudentToCloud) {
+        const ov = stuLoadOv();
+        const byUid = {}; stuList().forEach((s) => { byUid[s.uid] = s.email; });
+        Object.keys(ov).forEach((uid) => { window.rjPushStudentToCloud(uid, ov[uid], byUid[uid] || ov[uid].email).catch(() => {}); });
+      }
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
   const [q, setQ] = useStA("");
   const [roleF, setRoleF] = useStA("student");
   const [statusF, setStatusF] = useStA("all");

@@ -24,7 +24,11 @@ function examStats(exam) {
 // 리마인드 (localStorage)
 function _remStore() { try { return JSON.parse(localStorage.getItem("rj_exam_reminders") || "{}"); } catch (e) { return {}; } }
 function getExamReminder(id) { const r = _remStore()[id]; return r || null; }
-function sendExamReminder(id) { const s = _remStore(); s[id] = { at: Date.now() }; try { localStorage.setItem("rj_exam_reminders", JSON.stringify(s)); } catch (e) {} return s[id]; }
+function sendExamReminder(id) {
+  const s = _remStore(); s[id] = { at: Date.now() }; try { localStorage.setItem("rj_exam_reminders", JSON.stringify(s)); } catch (e) {}
+  if (window.rjPushExamReminder) window.rjPushExamReminder(id, s[id].at).catch(() => {});
+  return s[id];
+}
 
 Object.assign(window, { examStats, getExamReminder, sendExamReminder });
 
@@ -32,6 +36,16 @@ Object.assign(window, { examStats, getExamReminder, sendExamReminder });
 function AdminExamOverview({ onGrade }) {
   const { showToast } = useApp();
   const [, force] = useStEx2(0);
+
+  // 클라우드(Supabase)에서 리마인드 발송 기록 동기화 → 로컬 캐시 교체 후 재렌더
+  React.useEffect(() => {
+    let alive = true;
+    if (window.rjSyncExamRemindersFromCloud) {
+      window.rjSyncExamRemindersFromCloud().then((r) => { if (alive && r && r.ok && r.loaded) force((n) => n + 1); }).catch(() => {});
+    }
+    return () => { alive = false; };
+  }, []);
+
   const timeline = window.examTimeline();          // desc
   const current = timeline.find((r) => r.status === "open") || timeline[0];
   const graded = timeline.filter((r) => r.status === "graded").slice().reverse(); // asc

@@ -89,8 +89,20 @@ function Shell() {
 
 function App() {
   const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const [, forceBoot] = React.useState(0);
 
   React.useEffect(() => { applyTweaks(tweaks); }, [tweaks]);
+
+  // 부팅 시 클라우드(Supabase) 동기화 — 강좌/강사 카탈로그 + 본인 학생 명부 행
+  //   (미연결 시 no-op → 기존 로컬 동작 유지)
+  React.useEffect(() => {
+    let alive = true;
+    if (window.rjSyncCoursesFromCloud) {
+      window.rjSyncCoursesFromCloud().then((r) => { if (alive && r && r.changed) forceBoot((n) => n + 1); }).catch(() => {});
+    }
+    if (window.rjSyncStudentsFromCloud) window.rjSyncStudentsFromCloud().catch(() => {});
+    return () => { alive = false; };
+  }, []);
 
   return (
     <AppProvider initialTweaks={tweaks}>

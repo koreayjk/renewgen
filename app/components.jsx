@@ -257,7 +257,7 @@ function SiteHeader() {
             <img src="assets/logo-full.png" alt="리뉴젠 아카데미 · Re:newgen Academy" className="brand-logo-full" />
           </a>
           <div className="header-actions">
-            {user && <button className="icon-btn" onClick={() => navigate("/mypage")} aria-label="학습 대시보드">
+            {user && <button className="icon-btn" onClick={() => navigate(window.isAdmin && window.isAdmin(user) ? "/admin" : (window.isStaff && window.isStaff(user) ? "/teacher" : "/mypage"))} aria-label="내 화면">
               <span className="avatar avatar-sm" style={{ background: "var(--rj-ink)", color: "var(--rj-paper)" }}>{user.initials}</span>
             </button>}
           </div>
@@ -289,7 +289,7 @@ function SiteHeader() {
             {cart.length > 0 && <span className="badge">{cart.length}</span>}
           </button>
           {user ? (
-            <button className="icon-btn" onClick={() => navigate("/mypage")} aria-label="마이페이지">
+            <button className="icon-btn" onClick={() => navigate(window.isAdmin && window.isAdmin(user) ? "/admin" : (window.isStaff && window.isStaff(user) ? "/teacher" : "/mypage"))} aria-label="내 화면">
               <span className="avatar avatar-sm" style={{ background: "var(--rj-ink)", color: "var(--rj-paper)" }}>
                 {user.initials}
               </span>

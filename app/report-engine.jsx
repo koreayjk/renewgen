@@ -267,6 +267,71 @@ function removeRound(id) {
   return saveStore(store);
 }
 
+// ── 같은 라벨 회차에 병합 (같은 이름으로 업로드 시 새 회차 대신 기존에 추가) ──
+const _normLabel = (s) => String(s || "").trim();
+function findRoundByLabel(store, label) {
+  const n = _normLabel(label);
+  return (store.rounds || []).find((r) => _normLabel(r.label) === n) || null;
+}
+
+// 과목별(레벨+과목) 반평균·인원·석차를 round.students 로부터 다시 계산
+//   (병합 후 두 배치가 합쳐진 상태에서도 올바른 통계가 나오도록)
+function recomputeStats(round) {
+  const groups = {};   // `${level}::${subject}` → [{ key, score, sd }]
+  for (const key in round.students) {
+    const st = round.students[key];
+    for (const subj in st.subjects) {
+      const sd = st.subjects[subj];
+      const gk = (sd.level || st.level) + "::" + subj;
+      (groups[gk] = groups[gk] || []).push({ key, score: sd.score, sd });
+    }
+  }
+  for (const gk in groups) {
+    const list = groups[gk];
+    const taken = list.filter((x) => x.score != null);
+    const avg = taken.length ? taken.reduce((a, b) => a + b.score, 0) / taken.length : 0;
+    const sorted = [...taken].sort((a, b) => b.score - a.score);
+    for (const x of list) {
+      x.sd.classAvg = Math.round(avg * 10) / 10;
+      x.sd.classN = taken.length;
+      x.sd.rank = x.score != null ? sorted.findIndex((t) => t.key === x.key) + 1 : null;
+    }
+  }
+  computeOverall(round);
+  return round;
+}
+
+// source 회차의 학생·과목을 target 회차로 병합 (같은 과목은 새 값으로 교체, 새 과목은 추가)
+function mergeRoundInto(target, source) {
+  for (const k in source.students) {
+    const ss = source.students[k];
+    if (!target.students[k]) target.students[k] = { name: ss.name, org: ss.org, level: ss.level, subjects: {} };
+    for (const subj in ss.subjects) target.students[k].subjects[subj] = ss.subjects[subj];
+  }
+  for (const lv in source.subjectsByLevel) {
+    target.subjectsByLevel[lv] = target.subjectsByLevel[lv] || [];
+    for (const subj of source.subjectsByLevel[lv]) {
+      if (!target.subjectsByLevel[lv].includes(subj)) target.subjectsByLevel[lv].push(subj);
+    }
+  }
+  target.fileCount = (target.fileCount || 0) + (source.fileCount || 0);
+  return recomputeStats(target);
+}
+
+// 같은 라벨 회차가 있으면 병합, 없으면 새로 추가. { round, merged } 반환.
+function addOrMergeRound(newRound) {
+  const store = loadStore();
+  const existing = findRoundByLabel(store, newRound.label);
+  if (existing) {
+    mergeRoundInto(existing, newRound);
+    saveStore(store);
+    return { round: existing, merged: true };
+  }
+  store.rounds.push(newRound);
+  saveStore(store);
+  return { round: newRound, merged: false };
+}
+
 // ── 학생 추이 (회차별 평균 + 과목별 점수) ──────────────────────────
 function studentTrend(store, key) {
   return sortedRounds(store)
@@ -408,6 +473,7 @@ window.RJReport = {
   SUBJECTS: RJ_SUBJECTS, SUBJECT_KEYS: RJ_SUBJECT_KEYS,
   parseCSV, parseFileName, extractLevelSubject, parseSubjectRows, buildRound, buildRoundFromClassIn,
   loadStore, saveStore, clearStore, addRound, removeRound,
+  findRoundByLabel, addOrMergeRound, mergeRoundInto, recomputeStats,
   sortedRounds, studentTrend, rosterOf, shortLabel, genDemoStore,
   fetchClassInActivities, fetchClassInScores, simulateClassInRows,
 };

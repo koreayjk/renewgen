@@ -604,13 +604,15 @@ function ReportManager({ viewOnly = false } = {}) {
   };
   const commit = () => {
     if (!pending.length) return;
-    const r = RJReport.buildRound(pending.map((p) => ({ name: p.name, text: p.text })), roundLabel, { seq: Date.now() });
-    RJReport.addRound(r);
-    pushRound(r);
+    const built = RJReport.buildRound(pending.map((p) => ({ name: p.name, text: p.text })), roundLabel, { seq: Date.now() });
+    // 같은 이름 회차가 있으면 새로 만들지 않고 기존 회차에 과목·학생을 합친다
+    const { round, merged } = RJReport.addOrMergeRound(built);
+    pushRound(round);   // 클라우드는 id 기준 upsert → 병합된 회차로 갱신(중복 안 생김)
     setPending([]);
-    const s = reload();
-    setRoundId(r.id);
+    reload();
+    setRoundId(round.id);
     setSelKey(null);
+    showToast(merged ? `기존 "${RJReport.shortLabel(round.label)}" 회차에 추가했습니다` : "새 회차를 저장했습니다");
   };
   const loadDemo = () => { RJReport.genDemoStore(); const s = reload(); const rr = RJReport.sortedRounds(s); setRoundId((rr[rr.length - 1] || {}).id); setSelKey(null); };
 
@@ -618,7 +620,7 @@ function ReportManager({ viewOnly = false } = {}) {
   const pullFromClassIn = async () => {
     if (syncing) return;
     setSyncing(true);
-    const finish = (r, msg) => { if (r) { RJReport.addRound(r); pushRound(r); reload(); setRoundId(r.id); setSelKey(null); } if (msg) showToast(msg); setSyncing(false); };
+    const finish = (r, msg) => { if (r) { const { round } = RJReport.addOrMergeRound(r); pushRound(round); reload(); setRoundId(round.id); setSelKey(null); } if (msg) showToast(msg); setSyncing(false); };
     try {
       const rows = await RJReport.fetchClassInScores({ cmd: "AnswerSheetScore" });
       if (!rows.length) { showToast("클래스인에서 불러올 새 성적이 없습니다"); setSyncing(false); return; }

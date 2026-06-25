@@ -512,6 +512,186 @@ function useReportPrint(store, comments) {
   return { print: (roundId, keys) => setPrintJob({ roundId, keys }), area };
 }
 
+// ── 클래스인 시험(활동) 선택 → 회차 가져오기 모달 ─────────────────
+//   scores.php?action=activities 로 OMR 시험 목록을 받아 관리자가 고른 시험만
+//   scores.php?action=rows&ids=... 로 가져와 한 회차로 조립한다.
+//   백엔드(scores.php) 미연결이면 시뮬레이션 미리보기로 폴백한다.
+const CI_CMD_OPTIONS = [
+  { id: "AnswerSheetScore", label: "OMR 답안카드" },
+  { id: "ExamScore", label: "LMS 측험" },
+  { id: "HomeworkScore", label: "숙제" },
+  { id: "all", label: "전체" },
+];
+
+function ciActLabel(a) {
+  const meta = RJReport.extractLevelSubject([a.activity_name, a.unit_name, a.course_name].filter(Boolean).join(" "));
+  return { level: meta.level, subject: meta.subject };
+}
+function ciFmtWhen(s) {
+  if (!s) return "";
+  return String(s).replace("T", " ").slice(0, 16);
+}
+
+function ClassInImportModal({ defaultLabel, onClose, onImport }) {
+  const [phase, setPhase] = useStR("loading");   // loading | list | importing | error
+  const [acts, setActs] = useStR([]);
+  const [sel, setSel] = useStR({});              // activity_id → true
+  const [label, setLabel] = useStR(defaultLabel || "");
+  const [cmd, setCmd] = useStR("AnswerSheetScore");
+  const [err, setErr] = useStR("");
+
+  const loadActs = useCbR(async (c) => {
+    setPhase("loading"); setErr("");
+    try {
+      const list = await RJReport.fetchClassInActivities(c);
+      setActs(list);
+      const next = {};
+      list.forEach((a) => { next[a.activity_id] = true; });  // 기본 전체 선택
+      setSel(next);
+      setPhase("list");
+    } catch (e) {
+      setErr(String((e && e.message) || e));
+      setPhase("error");
+    }
+  }, []);
+
+  useEffectR(() => { loadActs(cmd); }, [cmd]);
+
+  const selectedIds = acts.filter((a) => sel[a.activity_id]).map((a) => a.activity_id);
+  const allOn = acts.length > 0 && selectedIds.length === acts.length;
+  const toggleAll = () => { const v = !allOn; const n = {}; acts.forEach((a) => { n[a.activity_id] = v; }); setSel(n); };
+  const toggle = (id) => setSel((p) => ({ ...p, [id]: !p[id] }));
+
+  const doImport = async () => {
+    if (!selectedIds.length) return;
+    setPhase("importing"); setErr("");
+    try {
+      const rows = await RJReport.fetchClassInScores({ ids: selectedIds, cmd });
+      if (!rows.length) { setErr("선택한 시험에 불러올 성적 데이터가 없습니다."); setPhase("list"); return; }
+      const round = RJReport.buildRoundFromClassIn(rows, label || defaultLabel, { seq: Date.now() });
+      onImport(round, `클래스인에서 ${rows.length}건(시험 ${selectedIds.length}개)을 불러왔습니다`);
+      onClose();
+    } catch (e) {
+      setErr(String((e && e.message) || e));
+      setPhase("error");
+    }
+  };
+
+  const doSimulate = () => {
+    const idx = RJReport.sortedRounds(RJReport.loadStore()).length;
+    const rows = RJReport.simulateClassInRows(idx);
+    const round = RJReport.buildRoundFromClassIn(rows, (label || defaultLabel) + " · 동기화 미리보기", { seq: Date.now() });
+    onImport(round, "동기화 미리보기 회차를 생성했습니다 (백엔드 미연결)");
+    onClose();
+  };
+
+  return (
+    <div className="ci-modal-overlay" onClick={onClose}>
+      <div className="ci-modal" onClick={(e) => e.stopPropagation()} style={{ width: "min(640px, 96vw)" }}>
+        <div className="ci-modal-head">
+          클래스인에서 성적 불러오기
+          <button className="ci-x" onClick={onClose}><Icon name="close" size={16} /></button>
+        </div>
+        <div className="ci-modal-body" style={{ maxHeight: "70vh", overflowY: "auto" }}>
+          {/* 회차 이름 */}
+          <div className="ci-field">
+            <label>회차 이름</label>
+            <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="2026 · 6월 월말평가" />
+          </div>
+
+          {/* 성적 종류 */}
+          <div style={{ display: "flex", gap: 6, margin: "4px 0 14px", flexWrap: "wrap" }}>
+            {CI_CMD_OPTIONS.map((o) => (
+              <button key={o.id} type="button" onClick={() => setCmd(o.id)} disabled={phase === "importing"}
+                className={"ci-act sm" + (cmd === o.id ? " navy" : "")}
+                style={{ opacity: phase === "importing" ? 0.6 : 1 }}>
+                {o.label}
+              </button>
+            ))}
+          </div>
+
+          {phase === "loading" && (
+            <div style={{ padding: "32px 0", textAlign: "center", color: "var(--ci-muted)", fontSize: 13 }}>
+              <Icon name="refresh" size={20} /> <div style={{ marginTop: 8, fontWeight: 700 }}>클래스인 시험 목록을 불러오는 중…</div>
+            </div>
+          )}
+
+          {phase === "error" && (
+            <div style={{ padding: "18px 16px", borderRadius: 10, background: "rgba(192,57,43,0.06)", border: "1px solid rgba(192,57,43,0.25)" }}>
+              <div style={{ fontWeight: 800, color: "#C0392B", fontSize: 13.5 }}>클래스인 백엔드(scores.php)에 연결할 수 없습니다</div>
+              <p style={{ fontSize: 12.5, color: "var(--ci-muted)", lineHeight: 1.6, margin: "8px 0 0" }}>
+                실서버에서는 <code>/classin/api/scores.php</code> 가 hook.php 로 받은 OMR 답안카드 성적을 돌려줍니다.
+                지금은 자동 동기화 결과를 ‘미리보기’로 생성해 화면을 확인할 수 있습니다.
+              </p>
+              <div style={{ fontSize: 11, color: "var(--ci-muted)", marginTop: 8, fontFamily: "var(--font-en)", wordBreak: "break-all" }}>{err}</div>
+              <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+                <button className="ci-act sm" onClick={() => loadActs(cmd)}><Icon name="refresh" size={11} /> 다시 시도</button>
+                <button className="ci-act sm navy" onClick={doSimulate}><Icon name="sparkle" size={11} /> 미리보기로 생성</button>
+              </div>
+            </div>
+          )}
+
+          {(phase === "list" || phase === "importing") && (
+            acts.length === 0 ? (
+              <div style={{ padding: "28px 0", textAlign: "center", color: "var(--ci-muted)", fontSize: 13 }}>
+                <Icon name="folder" size={22} />
+                <p style={{ marginTop: 10, fontWeight: 700 }}>불러올 수 있는 시험이 없습니다.</p>
+                <p style={{ fontSize: 12, marginTop: 4 }}>클래스인에서 OMR 답안카드 시험이 채점되면 여기에 나타납니다.</p>
+              </div>
+            ) : (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: "var(--ci-muted)" }}>가져올 시험 선택 ({selectedIds.length}/{acts.length})</span>
+                  <button className="ci-act sm" type="button" onClick={toggleAll}>{allOn ? "전체 해제" : "전체 선택"}</button>
+                </div>
+                <div style={{ display: "grid", gap: 6 }}>
+                  {acts.map((a) => {
+                    const on = !!sel[a.activity_id];
+                    const m = ciActLabel(a);
+                    return (
+                      <label key={a.activity_id} style={{
+                        display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 10, alignItems: "center",
+                        padding: "10px 12px", borderRadius: 10, cursor: "pointer",
+                        border: "1px solid " + (on ? "var(--ci-navy, #001D3D)" : "var(--ci-line)"),
+                        background: on ? "rgba(0,29,61,0.04)" : "#fff",
+                      }}>
+                        <input type="checkbox" checked={on} onChange={() => toggle(a.activity_id)} style={{ width: 16, height: 16 }} />
+                        <span>
+                          <span style={{ fontWeight: 700, fontSize: 13.5, color: "var(--ci-ink)" }}>{a.activity_name || "(제목 없음)"}</span>
+                          <span style={{ display: "flex", gap: 6, marginTop: 3, flexWrap: "wrap", alignItems: "center" }}>
+                            {m.level !== "기타" && <span className="ci-badge neutral" style={{ fontSize: 10.5 }}>{m.level}</span>}
+                            {m.subject !== "기타" && <span className="ci-badge neutral" style={{ fontSize: 10.5 }}>{m.subject}</span>}
+                            <span style={{ fontSize: 11.5, color: "var(--ci-muted)" }}>{a.course_name || ""}</span>
+                          </span>
+                        </span>
+                        <span style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                          <span style={{ display: "block", fontFamily: "var(--font-en)", fontWeight: 800, fontSize: 13, color: "var(--ci-navy)" }}>{a.student_count || 0}명</span>
+                          <span style={{ display: "block", fontSize: 10.5, color: "var(--ci-muted)" }}>{ciFmtWhen(a.last_corrected || a.last_submitted)}</span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+                <p style={{ fontSize: 11.5, color: "var(--ci-muted)", lineHeight: 1.6, margin: "12px 0 0" }}>
+                  · 같은 회차(월)의 시험들을 함께 선택하세요 — 과목별로 묶여 한 회차로 만들어집니다.<br />
+                  · 같은 이름의 회차가 이미 있으면 새로 만들지 않고 과목·학생이 <strong>병합</strong>됩니다.
+                </p>
+              </>
+            )
+          )}
+        </div>
+        <div className="ci-modal-foot">
+          <button className="ci-act" onClick={onClose}>취소</button>
+          <button className="ci-act navy" disabled={phase !== "list" || !selectedIds.length} onClick={doImport}
+            style={{ opacity: (phase === "list" && selectedIds.length) ? 1 : 0.5 }}>
+            <Icon name={phase === "importing" ? "sparkle" : "check"} size={13} /> {phase === "importing" ? "불러오는 중…" : `${selectedIds.length}개 시험 불러오기`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── 관리자: 성적표 매니저 ─────────────────────────────────────────
 function ReportManager({ viewOnly = false } = {}) {
   const [store, setStore] = useStR(() => RJReport.loadStore());
@@ -582,7 +762,7 @@ function ReportManager({ viewOnly = false } = {}) {
   const [pending, setPending] = useStR([]);     // [{name,text,level,subject}]
   const [roundLabel, setRoundLabel] = useStR(() => `2026 · ${new Date().getMonth() + 1}월 월말평가`);
   const [over, setOver] = useStR(false);
-  const [syncing, setSyncing] = useStR(false);
+  const [ciOpen, setCiOpen] = useStR(false);   // 클래스인 시험 선택 모달
   const fileRef = useRefR(null);
   const { print, area } = useReportPrint(store, comments);
   const { showToast } = useApp();
@@ -616,24 +796,16 @@ function ReportManager({ viewOnly = false } = {}) {
   };
   const loadDemo = () => { RJReport.genDemoStore(); const s = reload(); const rr = RJReport.sortedRounds(s); setRoundId((rr[rr.length - 1] || {}).id); setSelKey(null); };
 
-  // ClassIn 자동 동기화 — scores.php(hook 으로 수신한 OMR 답안카드 성적)에서 바로 회차 생성
-  const pullFromClassIn = async () => {
-    if (syncing) return;
-    setSyncing(true);
-    const finish = (r, msg) => { if (r) { const { round } = RJReport.addOrMergeRound(r); pushRound(round); reload(); setRoundId(round.id); setSelKey(null); } if (msg) showToast(msg); setSyncing(false); };
-    try {
-      const rows = await RJReport.fetchClassInScores({ cmd: "AnswerSheetScore" });
-      if (!rows.length) { showToast("클래스인에서 불러올 새 성적이 없습니다"); setSyncing(false); return; }
-      finish(RJReport.buildRoundFromClassIn(rows, roundLabel, { seq: Date.now() }), `클래스인에서 ${rows.length}건을 불러와 회차를 만들었습니다`);
-    } catch (e) {
-      // 백엔드(scores.php) 미연결 — 프로토타입에서는 동기화 결과를 시뮬레이션으로 미리보기
-      setSyncing(false);
-      if (confirm("클래스인 백엔드(scores.php)에 연결할 수 없습니다.\n\n실서버에서는 hook.php 가 받은 OMR 답안카드 성적을 그대로 불러옵니다.\n지금은 자동 동기화 결과를 '미리보기'로 생성해 볼까요?")) {
-        const rows = RJReport.simulateClassInRows(RJReport.sortedRounds(RJReport.loadStore()).length);
-        const r = RJReport.buildRoundFromClassIn(rows, roundLabel + " · 동기화 미리보기", { seq: Date.now() });
-        RJReport.addRound(r); pushRound(r); reload(); setRoundId(r.id); setSelKey(null);
-      }
-    }
+  // ClassIn 자동 동기화 — scores.php(hook 으로 수신한 OMR 답안카드 성적)에서 회차 생성.
+  // 모달에서 시험(활동)을 골라 가져온 round 를 받아 저장·병합한다.
+  const importClassInRound = (round, msg) => {
+    if (!round) return;
+    const { round: saved } = RJReport.addOrMergeRound(round);
+    pushRound(saved);   // 클라우드는 id 기준 upsert
+    reload();
+    setRoundId(saved.id);
+    setSelKey(null);
+    if (msg) showToast(msg);
   };
   const wipe = () => { if (confirm("​저장된 모든 회차 데이터를 삭제할까요?\n· 클라우드와 로컬 모두 삭제됩니다.")) { RJReport.clearStore(); rcSaveComments({}); setComments({}); reload(); setRoundId(null); setSelKey(null); if (!viewOnly && window.rjWipeAllRoundsFromCloud) window.rjWipeAllRoundsFromCloud().catch(()=>{}); } };
   const delRound = (id) => { if (confirm("이 회차를 삭제할까요?")) { RJReport.removeRound(id); deleteCloud(id); const s = reload(); const rr = RJReport.sortedRounds(s); setRoundId((rr[rr.length - 1] || {}).id || null); setSelKey(null); } };
@@ -668,6 +840,13 @@ function ReportManager({ viewOnly = false } = {}) {
   return (
     <div>
       {area}
+      {ciOpen && (
+        <ClassInImportModal
+          defaultLabel={roundLabel}
+          onClose={() => setCiOpen(false)}
+          onImport={importClassInRound}
+        />
+      )}
       {/* 클라우드 동기화 상태 — 어떤 컴퓨터·브라우저에서 로그인해도 같은 데이터가 보이는지 표시 */}
       <div className="no-print" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 14, padding: "10px 14px", borderRadius: 10, background: cloudState === "cloud" ? "rgba(31,138,91,0.06)" : "var(--ci-bg)", border: "1px solid " + (cloudState === "cloud" ? "rgba(31,138,91,0.25)" : "var(--ci-line)"), fontSize: 12.5 }}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "var(--ci-ink)", fontWeight: 600 }}>
@@ -726,8 +905,8 @@ function ReportManager({ viewOnly = false } = {}) {
               <Icon name="check" size={14} /> {pending.length}개 파일 분류 · 회차 저장
             </button>
             <button className="ci-act" style={{ height: 42, justifyContent: "center", borderColor: "var(--ci-navy, #001D3D)", color: "var(--ci-navy, #001D3D)", fontWeight: 800 }}
-              disabled={syncing} onClick={pullFromClassIn}>
-              <Icon name={syncing ? "sparkle" : "refresh"} size={14} /> {syncing ? "불러오는 중…" : "클래스인에서 자동으로 불러오기"}
+              onClick={() => setCiOpen(true)}>
+              <Icon name="refresh" size={14} /> 클래스인에서 자동으로 불러오기
             </button>
             <div style={{ display: "flex", gap: 8 }}>
               <button className="ci-act" style={{ flex: 1, justifyContent: "center" }} onClick={wipe}><Icon name="trash" size={13} /> 전체 초기화</button>
@@ -745,7 +924,7 @@ function ReportManager({ viewOnly = false } = {}) {
       {!round ? (
         <div className="ci-card ci-card-pad no-print" style={{ textAlign: "center", padding: "56px 24px", color: "var(--ci-muted)" }}>
           <Icon name="folder" size={28} />
-          <p style={{ marginTop: 12, fontWeight: 700 }}>{viewOnly ? "관리자가 발행한 성적표가 아직 없습니다." : "아직 저장된 회차가 없습니다. 클래스인 성적 CSV를 업로드하거나 ‘클래스인 자동 동기화’를 눌러주세요."}</p>
+          <p style={{ marginTop: 12, fontWeight: 700 }}>{viewOnly ? "관리자가 발행한 성적표가 아직 없습니다." : "아직 저장된 회차가 없습니다. 클래스인 성적 CSV를 업로드하거나 ‘클래스인에서 자동으로 불러오기’를 눌러주세요."}</p>
         </div>
       ) : (
         <>

@@ -326,7 +326,7 @@ function RJSubjectBars({ subjects, rounds }) {
         {grid.map((g) => (
           <g key={g}>
             <line x1={padL} y1={yAt(g)} x2={W - padR} y2={yAt(g)} stroke="#EAE3D0" strokeWidth="1" />
-            <text x={padL - 8} y={yAt(g)} dy="0.32em" textAnchor="end" fontSize="9.5" fontFamily="var(--font-en)" fill="#A79F89">{g}</text>
+            <text x={padL - 8} y={yAt(g)} dy="0.32em" textAnchor="end" fontSize="9.5" style={{ fontFamily: "var(--font-en)" }} fill="#A79F89">{g}</text>
           </g>
         ))}
         {subjects.map((sub, gi) => {
@@ -341,11 +341,11 @@ function RJSubjectBars({ subjects, rounds }) {
                 return (
                   <g key={ri}>
                     <rect x={x} y={y} width={barW} height={yAt(0) - y} rx="3" fill={RC_ROUND_COLORS[ri % RC_ROUND_COLORS.length]} />
-                    <text x={x + barW / 2} y={y - 5} textAnchor="middle" fontSize="10" fontWeight="800" fontFamily="var(--font-en)" fill="#001D3D">{Math.round(v)}</text>
+                    <text x={x + barW / 2} y={y - 5} textAnchor="middle" fontSize="10" fontWeight="800" style={{ fontFamily: "var(--font-en)" }} fill="#001D3D">{Math.round(v)}</text>
                   </g>
                 );
               })}
-              <text x={gx + groupW / 2} y={H - padB + 20} textAnchor="middle" fontSize="12.5" fontWeight="700" fill="#001D3D" fontFamily="var(--font-kr)">{sub}</text>
+              <text x={gx + groupW / 2} y={H - padB + 20} textAnchor="middle" fontSize="12.5" fontWeight="700" fill="#001D3D" style={{ fontFamily: "var(--font-kr)" }}>{sub}</text>
             </g>
           );
         })}
@@ -374,7 +374,7 @@ function StudentReportCard({ round, store, studentKey, comment, onComment, edita
   const takenSubs = orderSubs.filter((id) => st.subjects[id] && st.subjects[id].score != null);
 
   // 회차별 추이 (과목별 점수 포함) — 표·막대그래프 공용
-  const trend = useMemoR(() => RJReport.studentTrend(store, studentKey), [store, studentKey, round.id]);
+  const trend = useMemoR(() => RJReport.studentTrend(store, studentKey, round.seq), [store, studentKey, round.id, round.seq]);
   const prevAvg = trend.length >= 2 ? trend[trend.length - 2].avg : null;
   const delta = prevAvg != null && st.avg != null ? Math.round((st.avg - prevAvg) * 10) / 10 : null;
 

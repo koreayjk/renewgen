@@ -333,9 +333,11 @@ function addOrMergeRound(newRound) {
 }
 
 // ── 학생 추이 (회차별 평균 + 과목별 점수) ──────────────────────────
-function studentTrend(store, key) {
+//   uptoSeq 를 주면 그 회차까지만(이전 회차 누적) 반환 — 5월을 보면 6월이 안 나오게.
+function studentTrend(store, key, uptoSeq) {
   return sortedRounds(store)
     .filter((r) => r.students[key])
+    .filter((r) => uptoSeq == null || r.seq <= uptoSeq)
     .map((r) => {
       const st = r.students[key];
       const subjects = {};

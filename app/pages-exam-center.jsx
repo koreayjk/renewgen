@@ -210,7 +210,7 @@ function TrendChart({ trend }) {
         {[0, 50, 80, 100].map((v) => (
           <g key={v}>
             <line x1={padX} y1={y(v)} x2={W - padX} y2={y(v)} stroke="var(--ci-line)" strokeWidth="1" strokeDasharray={v === 0 ? "0" : "3 4"} />
-            <text x={padX - 10} y={y(v) + 4} textAnchor="end" fontSize="11" fill="var(--ci-muted)" fontFamily="var(--font-en)">{v}</text>
+            <text x={padX - 10} y={y(v) + 4} textAnchor="end" fontSize="11" fill="var(--ci-muted)" style={{ fontFamily: "var(--font-en)" }}>{v}</text>
           </g>
         ))}
         {/* 영역 + 선 */}
@@ -220,7 +220,7 @@ function TrendChart({ trend }) {
         {pts.map((p, i) => (
           <g key={i}>
             <circle cx={p.x} cy={p.y} r="6" fill="#fff" stroke={gradeColor(p.pct)} strokeWidth="3" />
-            <text x={p.x} y={p.y - 14} textAnchor="middle" fontSize="13" fontWeight="800" fill="var(--ci-ink)" fontFamily="var(--font-en)">{p.pct}</text>
+            <text x={p.x} y={p.y - 14} textAnchor="middle" fontSize="13" fontWeight="800" fill="var(--ci-ink)" style={{ fontFamily: "var(--font-en)" }}>{p.pct}</text>
             <text x={p.x} y={H - 14} textAnchor="middle" fontSize="12" fontWeight="700" fill="var(--ci-muted)">{window.monthKo(p.exam.period)}</text>
           </g>
         ))}

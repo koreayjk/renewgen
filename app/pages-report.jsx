@@ -369,17 +369,24 @@ function RJSubjectBars({ subjects, rounds }) {
 function StudentReportCard({ round, store, studentKey, comment, onComment, editable, onScoreChange }) {
   const st = round.students[studentKey];
   if (!st) return null;
-  const levelSubs = (round.subjectsByLevel[st.level] || RJReport.SUBJECTS.map((s) => s.id));
-  const orderSubs = RJReport.SUBJECTS.map((s) => s.id).filter((id) => levelSubs.includes(id));
-  for (const id of levelSubs) if (!orderSubs.includes(id)) orderSubs.push(id);
+  // 표시용 과목 목록: 학생이 실제로 가진 과목 점수에서 직접 산출.
+  //   옛 데이터는 과목 키가 "고A 국어"처럼 레벨이 박혀 있어 subjectsByLevel/짧은 키로
+  //   찾으면 점수가 있어도 누락됨 → 학생 본인 subjects 키를 직접 써서 견고하게 표시.
+  const stdOrder = RJReport.SUBJECTS.map((s) => s.id);
+  const subjRank = (id) => { const i = stdOrder.indexOf(rcSubjShort(id)); return i < 0 ? 99 : i; };
+  const takenSubs = Object.keys(st.subjects)
+    .filter((id) => st.subjects[id] && st.subjects[id].score != null)
+    .sort((a, b) => subjRank(a) - subjRank(b));
 
-  // 이번 회차에 응시한 과목만 (미응시 제외)
-  const takenSubs = orderSubs.filter((id) => st.subjects[id] && st.subjects[id].score != null);
+  // 평균·응시 과목 수도 실제 점수에서 재계산 (저장된 집계가 옛 데이터라 어긋나도 견고하게)
+  const takenScores = takenSubs.map((id) => Number(st.subjects[id].score));
+  const dispTaken = takenScores.length;
+  const dispAvg = dispTaken ? Math.round((takenScores.reduce((a, b) => a + b, 0) / dispTaken) * 10) / 10 : null;
 
   // 회차별 추이 (과목별 점수 포함) — 표·막대그래프 공용
   const trend = useMemoR(() => RJReport.studentTrend(store, studentKey, round.seq), [store, studentKey, round.id, round.seq]);
   const prevAvg = trend.length >= 2 ? trend[trend.length - 2].avg : null;
-  const delta = prevAvg != null && st.avg != null ? Math.round((st.avg - prevAvg) * 10) / 10 : null;
+  const delta = prevAvg != null && dispAvg != null ? Math.round((dispAvg - prevAvg) * 10) / 10 : null;
 
   const cText = (comment != null && comment !== "") ? comment : rcAutoComment(st, delta, { name: st.name, trend, roundLabel: round.label });
   const showLevel = st.level && st.level !== "기타";
@@ -394,7 +401,7 @@ function StudentReportCard({ round, store, studentKey, comment, onComment, edita
         </div>
         <div className="rc-head-meta">
           <div className="t">{round.label}</div>
-          <div className="d">{showLevel ? st.level + " · " : ""}응시 {st.taken || 0}과목</div>
+          <div className="d">{showLevel ? st.level + " · " : ""}응시 {dispTaken}과목</div>
         </div>
       </div>
 
@@ -415,15 +422,15 @@ function StudentReportCard({ round, store, studentKey, comment, onComment, edita
       <div className="rc-summary">
         <div className="rc-kpi">
           <div className="k">이번 회차 평균</div>
-          <div className="v">{st.avg != null ? st.avg : "–"}<small>점</small></div>
-          <div className="sub">{st.taken || 0}과목 평균 · 100점 만점</div>
+          <div className="v">{dispAvg != null ? dispAvg : "–"}<small>점</small></div>
+          <div className="sub">{dispTaken}과목 평균 · 100점 만점</div>
         </div>
         <div className="rc-kpi">
           <div className="k">전월 대비</div>
           <div className="v">
             {delta == null ? "–" : <span className={"rc-delta " + (delta > 0 ? "up" : delta < 0 ? "down" : "flat")}>{delta > 0 ? "▲" : delta < 0 ? "▼" : "■"} {Math.abs(delta)}</span>}
           </div>
-          <div className="sub">{prevAvg != null ? `직전 ${prevAvg}점 → 현재 ${st.avg}점` : "첫 회차 응시"}</div>
+          <div className="sub">{prevAvg != null ? `직전 ${prevAvg}점 → 현재 ${dispAvg}점` : "첫 회차 응시"}</div>
         </div>
       </div>
 

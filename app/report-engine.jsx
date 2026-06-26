@@ -342,7 +342,10 @@ function studentTrend(store, key, uptoSeq) {
       const st = r.students[key];
       const subjects = {};
       for (const sid in st.subjects) subjects[sid] = st.subjects[sid].score;
-      return { roundId: r.id, label: r.label, shortLabel: shortLabel(r.label), avg: st.avg, subjects };
+      // 평균은 저장값(st.avg) 대신 실제 과목 점수로 재계산 — 옛 데이터의 stale 집계 방지
+      const vals = Object.values(subjects).filter((x) => x != null).map(Number);
+      const avg = vals.length ? Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10 : null;
+      return { roundId: r.id, label: r.label, shortLabel: shortLabel(r.label), avg, subjects };
     });
 }
 function shortLabel(label) {

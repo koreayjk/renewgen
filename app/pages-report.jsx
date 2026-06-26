@@ -13,7 +13,10 @@ const RC_COMMENTS_KEY = "rj_report_comments_v2";
 function rcLoadComments() { try { return JSON.parse(localStorage.getItem(RC_COMMENTS_KEY) || "{}"); } catch (e) { return {}; } }
 function rcSaveComments(c) { try { localStorage.setItem(RC_COMMENTS_KEY, JSON.stringify(c)); } catch (e) {} }
 const rcInitials = (nm) => (nm || "").slice(0, 2);
-const rcSubColor = (id) => (RJReport.SUBJECTS.find((s) => s.id === id) || {}).color || "#5C6678";
+// 과목 라벨에서 레벨 접두어(중A·고B·초1 등)를 떼어 짧게 표시.
+//   옛 데이터는 과목 키가 "고A 과학" 처럼 저장돼 라벨이 길어 겹쳐 보였음. 표시 전용 정규화.
+const rcSubjShort = (id) => String(id || "").replace(/^\s*(중|고|초)\s*[A-Za-z0-9]+\s+/, "");
+const rcSubColor = (id) => (RJReport.SUBJECTS.find((s) => s.id === id || s.id === rcSubjShort(id)) || {}).color || "#5C6678";
 
 // ── 자동 코멘트 — 반 평균 대비 / 과목별 강·약점 / 회차 추이 / 약점 코칭 / 마무리
 // 학생마다 점수·추이·반 위치가 달라서 자연스럽게 내용이 갈리도록 설계.
@@ -345,7 +348,7 @@ function RJSubjectBars({ subjects, rounds }) {
                   </g>
                 );
               })}
-              <text x={gx + groupW / 2} y={H - padB + 20} textAnchor="middle" fontSize="12.5" fontWeight="700" fill="#001D3D" style={{ fontFamily: "var(--font-kr)" }}>{sub}</text>
+              <text x={gx + groupW / 2} y={H - padB + 20} textAnchor="middle" fontSize="12.5" fontWeight="700" fill="#001D3D" style={{ fontFamily: "var(--font-kr)" }}>{rcSubjShort(sub)}</text>
             </g>
           );
         })}
@@ -432,7 +435,7 @@ function StudentReportCard({ round, store, studentKey, comment, onComment, edita
             <tr>
               <th className="corner">구분</th>
               {takenSubs.map((id) => (
-                <th key={id}><span className="rc-subdot" style={{ background: rcSubColor(id) }} />{id}</th>
+                <th key={id}><span className="rc-subdot" style={{ background: rcSubColor(id) }} />{rcSubjShort(id)}</th>
               ))}
               <th className="avgcol">평균</th>
             </tr>

@@ -112,9 +112,9 @@ function PurposeStaircase() {
 // ── 운영 시스템 — ClassIn + 5 features ─────────────────────────────
 function OperatingSystem() {
   const feats = [
-    { n: "01", t: "온라인 실시간 수업", d: "인터넷이 되는 어디서든 수업을 듣습니다. 해외선교 중에도 학습을 이어갈 수 있습니다.", icon: "live" },
+    { n: "01", t: eduText("온라인 실시간 수업", "녹화 강의 수강"), d: "인터넷이 되는 어디서든 수업을 듣습니다. 해외선교 중에도 학습을 이어갈 수 있습니다.", icon: "live" },
     { n: "02", t: "녹화본 무제한 수강", d: "모든 수업은 녹화됩니다. 참여가 어려웠거나 이해가 덜 됐던 부분을 영상으로 계속 공부합니다.", icon: "play" },
-    { n: "03", t: "LMS 시스템", d: "쌍방향 칠판 등 교육 툴을 갖춘 ‘클래스인’으로 효과적인 수업을. 출결·과제·점수로 학습 상태를 진단합니다.", icon: "book" },
+    { n: "03", t: "LMS 시스템", d: eduText("쌍방향 칠판 등 교육 툴을 갖춘 ‘클래스인’으로 효과적인 수업을. 출결·과제·점수로 학습 상태를 진단합니다.", "다양한 학습 도구를 갖춘 학습관리 시스템(LMS)으로 효과적인 학습을. 출결·과제·점수로 학습 상태를 진단합니다."), icon: "book" },
     { n: "04", t: "오프라인 모임", d: "개강·종강 전후 오프라인 캠프, 과목별 집중 캠프, 찾아가는 미니클래스로 학습을 추가 지원합니다.", icon: "chat" },
     { n: "05", t: "성적표", d: "월간평가 시 성적표가 발송되며, 누적 점수와 그래프로 학습 상태와 성장을 확인합니다.", icon: "check" },
   ];
@@ -123,14 +123,14 @@ function OperatingSystem() {
       {/* ClassIn banner */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 24, alignItems: "center", background: PAPER, border: "1.5px solid " + LINE, borderRadius: 14, padding: "24px 28px" }}>
         <div>
-          <div style={{ fontWeight: 900, fontSize: 18, color: NAVY, letterSpacing: "-0.02em" }}>학습 플랫폼 — ClassIn</div>
+          <div style={{ fontWeight: 900, fontSize: 18, color: NAVY, letterSpacing: "-0.02em" }}>{eduText("학습 플랫폼 — ClassIn", "학습관리 시스템 (LMS)")}</div>
           <p style={{ margin: "8px 0 0", fontSize: 14.5, lineHeight: 1.6, color: MUTED, fontWeight: 500, maxWidth: 720 }}>
-            쌍방향 상호작용이 가능한 실시간 온라인 교육 플랫폼. 화이트보드·실시간 채팅·질문권·소그룹 토론까지 한 화면에서.
+            {eduText("쌍방향 상호작용이 가능한 실시간 온라인 교육 플랫폼. 화이트보드·실시간 채팅·질문권·소그룹 토론까지 한 화면에서.", "녹화 강의 기반의 온라인 학습 플랫폼. 강의 영상·학습 자료·과제·평가를 한 화면에서 관리합니다.")}
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#fff", border: "1px solid " + LINE, borderRadius: 10, padding: "12px 18px" }}>
-          <span style={{ width: 30, height: 30, borderRadius: 7, background: "#1B9C5D", display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 16 }}>C</span>
-          <span style={{ fontWeight: 800, fontSize: 17, color: "#1B9C5D", letterSpacing: "-0.02em" }}>ClassIn</span>
+          <span style={{ width: 30, height: 30, borderRadius: 7, background: "#1B9C5D", display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 16 }}>{eduText("C", "L")}</span>
+          <span style={{ fontWeight: 800, fontSize: 17, color: "#1B9C5D", letterSpacing: "-0.02em" }}>{eduText("ClassIn", "LMS")}</span>
         </div>
       </div>
       {/* 5 features */}

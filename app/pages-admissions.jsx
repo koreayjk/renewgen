@@ -47,7 +47,7 @@ const SCORE_GROUPS = [
 ];
 
 const TESTIMONIALS = [
-  "실시간 수업으로 제가 모르는 걸 콕 집어서 이해할 수 있도록 잘 지도해 주셔서 좋아요.",
+  window.eduText("실시간 수업으로 제가 모르는 걸 콕 집어서 이해할 수 있도록 잘 지도해 주셔서 좋아요.", "녹화 강의로 제가 모르는 걸 콕 집어 이해할 수 있도록 잘 지도해 주셔서 좋아요."),
   "각 과목별로 성경적 관점이 재해석된 기독교 교육으로 배울 수 있어서 좋아요.",
   "나이 상관없이 각자의 레벨에 맞게 수업이 진행돼서, 노베이스도 실력을 쌓아갈 수 있어요.",
 ];
@@ -67,11 +67,10 @@ function AdmissionsPage() {
             국내·해외 입시강의,<br /><em style={{ fontStyle: "normal", color: A_YEL }}>Total Care System.</em>
           </h1>
           <p style={{ fontSize: 17, lineHeight: 1.65, color: "rgba(255,255,255,0.8)", maxWidth: 640, marginTop: 20, fontWeight: 500 }}>
-            온라인 실시간 원격수업으로 기독교 관점의 교과목 학습을 제공합니다. 중등·고등 검정고시 / 수능 / 토플
-            교육과정을 모두 갖춘 온라인 실시간 학원입니다.
+            {eduText("온라인 실시간 원격수업으로 기독교 관점의 교과목 학습을 제공합니다. 중등·고등 검정고시 / 수능 / 토플 교육과정을 모두 갖춘 온라인 실시간 학원입니다.", "녹화 강의 원격수업으로 기독교 관점의 교과목 학습을 제공합니다. 중등·고등 검정고시 / 수능 / 토플 교육과정을 모두 갖춘 온라인 원격 학원입니다.")}
           </p>
           <div style={{ display: "flex", gap: 10, marginTop: 26, flexWrap: "wrap" }}>
-            {["온라인 실시간 원격수업", "기독교 교육", "검정고시 · 수능 · 토플"].map((b) => (
+            {[eduText("온라인 실시간 원격수업", "녹화 강의 원격수업"), "기독교 교육", "검정고시 · 수능 · 토플"].map((b) => (
               <span key={b} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 999, padding: "10px 20px", fontWeight: 700, fontSize: 14.5 }}>{b}</span>
             ))}
           </div>

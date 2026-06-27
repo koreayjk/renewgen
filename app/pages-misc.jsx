@@ -29,7 +29,7 @@ function InstructorsPage() {
             리뉴젠 아카데미 <em style={{ fontStyle: "normal", color: YL }}>선생님</em>.
           </h1>
           <p style={{ fontSize: 17, lineHeight: 1.65, color: "rgba(255,255,255,0.78)", maxWidth: 600, marginTop: 18, fontWeight: 500 }}>
-            과목당 책임 강사가 라이브·다시보기·첨삭까지 한 사람이 담당합니다.
+            {eduText("과목당 책임 강사가 라이브·다시보기·첨삭까지 한 사람이 담당합니다.", "과목당 책임 강사가 녹화 강의·다시보기·첨삭까지 한 사람이 담당합니다.")}
           </p>
         </div>
       </section>

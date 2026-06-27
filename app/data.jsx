@@ -10,6 +10,9 @@
 //      FAQ 원문 복귀 — 코드 삭제 없이 토글 하나로 원복)
 // ─────────────────────────────────────────────────────────────────────
 window.RJ_EDU_MODE = true;
+// EDU 모드일 때 두 번째(녹화강의) 문구를, 아니면 첫 번째(원래) 문구를 반환.
+//   사용처: 공개 마케팅 페이지의 실시간/쌍방향/라이브 문구 → 녹화강의 표현으로 일괄 전환.
+window.eduText = (normal, edu) => (window.RJ_EDU_MODE ? edu : normal);
 
 const SUBJECTS = [
   { id: "math",    ko: "수학",   en: "Mathematics" },

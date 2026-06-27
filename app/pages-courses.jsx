@@ -48,7 +48,7 @@ function CoursesPage() {
             강의 라인업, <span style={{ fontFamily: "var(--font-en)", fontStyle: "italic", fontWeight: 300 }}>by season.</span>
           </h1>
           <p className="body-lg" style={{ color: "var(--rj-muted)", marginTop: 18, maxWidth: 640 }}>
-            실시간 라이브 + 다시보기 + 첨삭 — 모든 강의가 같은 구성으로 짜여 있습니다.
+            {eduText("실시간 라이브 + 다시보기 + 첨삭 — 모든 강의가 같은 구성으로 짜여 있습니다.", "녹화 강의 + 다시보기 + 첨삭 — 모든 강의가 같은 구성으로 짜여 있습니다.")}
           </p>
         </div>
       </section>

@@ -72,7 +72,7 @@ function AcadHero() {
           <em style={{ fontStyle: "normal", color: "var(--acad-yellow)" }}>Total Care System</em>.
         </h1>
         <p style={{ color: "rgba(255,255,255,0.9)", fontSize: "clamp(16px, 1.55vw, 20px)", lineHeight: 1.72, maxWidth: 700, marginTop: 24, fontWeight: 500 }}>
-          리뉴젠 아카데미는 온라인 실시간 수업으로, 기독교 관점의 교과목 학습을 제공합니다.<br />
+          {eduText("리뉴젠 아카데미는 온라인 실시간 수업으로, 기독교 관점의 교과목 학습을 제공합니다.", "리뉴젠 아카데미는 녹화 강의로, 기독교 관점의 교과목 학습을 제공합니다.")}<br />
           검정고시부터 수능·토플까지 — 끊김 없는 한 주의 학습을 완성하세요.
         </p>
       </div>

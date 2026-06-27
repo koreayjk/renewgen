@@ -64,7 +64,7 @@ function AboutPage() {
       {/* 운영 시스템 */}
       <section style={{ background: CR, marginTop: 56 }}>
         <div className="container-wide" style={{ paddingTop: 80, paddingBottom: 80 }}>
-          <CurHead kor="운영 시스템" sub="‘클래스인(ClassIn)’ 기반의 쌍방향 실시간 수업으로, 기독교적 관점과 바른 태도로 학습하도록 공동체·부모님과 함께 체계적으로 진단·관리합니다." />
+          <CurHead kor="운영 시스템" sub={eduText("‘클래스인(ClassIn)’ 기반의 쌍방향 실시간 수업으로, 기독교적 관점과 바른 태도로 학습하도록 공동체·부모님과 함께 체계적으로 진단·관리합니다.", "과목별 녹화 강의를 선택해 수강하며, 기독교적 관점과 바른 태도로 학습하도록 공동체·부모님과 함께 체계적으로 진단·관리합니다.")} />
           <OperatingSystem />
         </div>
       </section>

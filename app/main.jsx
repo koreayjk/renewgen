@@ -52,7 +52,7 @@ function Router() {
   if (seg[0] === "weblive") return <WebLivePage />;
   if (seg[0] === "admin") return (window.isStaff && window.isStaff(user)) ? <AdminPage /> : <AdminDenied user={user} />;
   if (seg[0] === "teacher") return (window.isStaff && window.isStaff(user)) ? <TeacherPage /> : <AdminDenied user={user} />;
-  if (seg[0] === "about") return <AboutPage />;
+  if (seg[0] === "about") return window.RJ_EDU_MODE ? <HomePage /> : <AboutPage />;
   if (seg[0] === "curriculum") return <CurriculumPage />;
   if (seg[0] === "admissions") return <AdmissionsPage />;
   if (seg[0] === "faq") return <FaqPage />;

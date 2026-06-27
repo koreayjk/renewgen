@@ -39,9 +39,23 @@ const FAQ_GROUPS = [
   },
 ];
 
+// EDU MODE: '수업 · 운영' 그룹을 녹화강의 기준으로 교체 + 라이브 관련 질문 제거
+const FAQ_GROUPS_EDU = FAQ_GROUPS.map((g) =>
+  g.cat === "수업 · 운영"
+    ? {
+        cat: g.cat,
+        items: [
+          ["수업은 어떻게 진행되나요?", "과목별로 제공되는 녹화 강좌를 선택하여 수강하는 방식으로 진행됩니다. 수강생은 원하는 시간에 녹화 강의를 선택해 학습하며, 인터넷이 되는 곳이면 어디서든 반복해서 수강할 수 있습니다."],
+          g.items[2], // 주 몇 회·몇 분 수업인가요
+        ],
+      }
+    : g
+);
+
 function FaqPage() {
   const { navigate } = useApp();
   const [open, setOpen] = useStateFaq("0-0");
+  const groups = window.RJ_EDU_MODE ? FAQ_GROUPS_EDU : FAQ_GROUPS;
   return (
     <div className="page-enter">
       {/* HERO */}
@@ -60,7 +74,7 @@ function FaqPage() {
       {/* GROUPS */}
       <section style={{ background: F_PAPER }}>
         <div className="container-wide" style={{ paddingTop: 64, paddingBottom: 40, display: "grid", gap: 44 }}>
-          {FAQ_GROUPS.map((g, gi) => (
+          {groups.map((g, gi) => (
             <div key={gi}>
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
                 <span style={{ width: 34, height: 5, background: F_YEL, borderRadius: 3 }} />

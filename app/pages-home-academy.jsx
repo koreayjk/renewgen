@@ -8,11 +8,19 @@
 const { useState: useStateAcad, useMemo: useMemoAcad } = React;
 
 function HomeAcademy() {
+  const edu = window.RJ_EDU_MODE;
   return (
     <div className="page-enter">
       <AcadHero />
-      <AboutKeyPoints />
-      <AboutObjections />
+      {/* EDU MODE: 실시간(Key Point)·오프라인(질문답변) 블록을 가리고 그 자리에 기관 소개(About) 노출 */}
+      {edu ? (
+        <AboutPage />
+      ) : (
+        <>
+          <AboutKeyPoints />
+          <AboutObjections />
+        </>
+      )}
       <AboutCompare />
       <AboutResults />
       <AcadPhotoBand />

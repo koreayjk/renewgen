@@ -275,7 +275,7 @@ function SiteHeader() {
           </a>
         </div>
         <nav className="main-nav">
-          {NAV.map((n) => (
+          {NAV.filter((n) => !(window.RJ_EDU_MODE && n.path === "/about")).map((n) => (
             <a key={n.path} href={"#" + n.path}
                className={route.path.startsWith(n.path) ? "active" : ""}
                onClick={(e) => { e.preventDefault(); navigate(n.path); }}>{n.label}</a>

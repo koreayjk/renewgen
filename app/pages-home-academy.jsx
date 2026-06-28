@@ -64,15 +64,15 @@ function AcadHero() {
       <div style={{ position: "absolute", inset: 0, background: "linear-gradient(96deg, rgba(0,16,34,0.94) 0%, rgba(0,16,34,0.80) 40%, rgba(0,16,34,0.46) 78%, rgba(0,16,34,0.30) 100%)" }} />
       <div className="container-wide" style={{ position: "relative", paddingTop: 110, paddingBottom: 110 }}>
         <span style={{ display: "inline-block", background: "var(--acad-yellow)", color: "var(--acad-navy)", fontWeight: 800, fontSize: 13.5, padding: "8px 14px", borderRadius: 6, letterSpacing: "-0.01em" }}>
-          대한민국 기독교 교육 1위 · 국내·해외 입시
+          {eduText("대한민국 기독교 교육 1위 · 국내·해외 입시", "국내·해외 입시 전문 원격 학원")}
         </span>
         <h1 className="acad-headline" style={{ color: "#fff", fontSize: "clamp(36px, 4.6vw, 62px)", lineHeight: 1.12, letterSpacing: "-0.045em", margin: "24px 0 0" }}>
-          대한민국 기독교 교육 <em style={{ fontStyle: "normal", color: "var(--acad-yellow)" }}>1위</em><br />
+          {!window.RJ_EDU_MODE && <>대한민국 기독교 교육 <em style={{ fontStyle: "normal", color: "var(--acad-yellow)" }}>1위</em><br /></>}
           국내·해외 입시 <em style={{ fontStyle: "normal", color: "var(--acad-yellow)" }}>TCS</em>,<br />
           <em style={{ fontStyle: "normal", color: "var(--acad-yellow)" }}>Total Care System</em>.
         </h1>
         <p style={{ color: "rgba(255,255,255,0.9)", fontSize: "clamp(16px, 1.55vw, 20px)", lineHeight: 1.72, maxWidth: 700, marginTop: 24, fontWeight: 500 }}>
-          {eduText("리뉴젠 아카데미는 온라인 실시간 수업으로, 기독교 관점의 교과목 학습을 제공합니다.", "리뉴젠 아카데미는 녹화 강의로, 기독교 관점의 교과목 학습을 제공합니다.")}<br />
+          {eduText("리뉴젠 아카데미는 온라인 실시간 수업으로, 기독교 관점의 교과목 학습을 제공합니다.", "리뉴젠 아카데미는 녹화 강의로, 체계적인 교과목 학습을 제공합니다.")}<br />
           검정고시부터 수능·토플까지 — 끊김 없는 한 주의 학습을 완성하세요.
         </p>
       </div>

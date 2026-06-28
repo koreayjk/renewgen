@@ -251,7 +251,7 @@ function AboutKeyPoints() {
           <div style={{ position: "absolute", inset: 0, background: "radial-gradient(60% 100% at 50% 0%, rgba(255,214,10,0.16), transparent 62%)" }} />
           <div style={{ position: "relative", display: "grid", gridTemplateColumns: "1.05fr 1fr", gap: 0, alignItems: "stretch" }}>
             <div style={{ padding: "52px 48px", color: "#fff", display: "flex", flexDirection: "column", justifyContent: "center" }}>
-              <span style={{ display: "inline-block", background: AB.yel, color: AB.navy, fontWeight: 800, fontSize: 13, padding: "7px 13px", borderRadius: 5, width: "fit-content", whiteSpace: "nowrap" }}>1위 기독교 온라인 원격 학원</span>
+              <span style={{ display: "inline-block", background: AB.yel, color: AB.navy, fontWeight: 800, fontSize: 13, padding: "7px 13px", borderRadius: 5, width: "fit-content", whiteSpace: "nowrap" }}>{eduText("1위 기독교 온라인 원격 학원", "온라인 원격 학원")}</span>
               <h2 style={{ margin: "20px 0 0", fontWeight: 900, fontSize: "clamp(34px, 4.4vw, 56px)", letterSpacing: "-0.045em", lineHeight: 1.08 }}>
                 리뉴젠 아카데미만의<br /><em style={{ fontStyle: "normal", color: AB.yel }}>Key Point</em>
               </h2>
@@ -592,7 +592,7 @@ function ABResultTable({ data }) {
 function AboutResults() {
   const reviews = [
     { body: eduText("실시간 수업으로 제가 모르는 것을 캐치하셔서, 이해할 수 있도록 잘 지도해 주셔서 좋았어요.", "녹화 강의로 제가 모르는 부분을 꼼꼼히 짚어 주셔서, 이해할 수 있도록 잘 지도해 주셔서 좋았어요."), who: "수강생 김O진" },
-    { body: "각 과목을 성경적 관점으로 재해석·재구성한 기독교 교육으로 탁월하게 배울 수 있어서 좋았어요.", who: "학부모 김O빈" },
+    { body: eduText("각 과목을 성경적 관점으로 재해석·재구성한 기독교 교육으로 탁월하게 배울 수 있어서 좋았어요.", "각 과목을 깊이 있게 재해석·재구성한 수업으로 탁월하게 배울 수 있어서 좋았어요."), who: "학부모 김O빈" },
     { body: "나이 상관없이 각자 레벨에 맞게 수업이 진행되어, 노베이스도 수월하게 실력을 쌓아갈 수 있어 좋습니다.", who: "수강생 이O" },
   ];
   return (

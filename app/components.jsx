@@ -314,24 +314,30 @@ function SiteFooter() {
             <img src="assets/logo-full.png" alt="리뉴젠 아카데미 Re:newgen Academy" className="brand-logo-full brand-logo-full--lg" style={{ display: "block" }} />
             <p style={{ marginTop: 22, color: "rgba(245,241,233,0.6)", fontSize: 13, lineHeight: 1.65, maxWidth: 320 }}>
               정통의 입시. 새로운 학습.<br />
-              실시간 라이브 강의와 무제한 다시보기로 매주의 학습을 완성합니다.
+              {eduText("실시간 라이브 강의와 무제한 다시보기로 매주의 학습을 완성합니다.", "체계적인 녹화 강의와 무제한 다시보기로 매주의 학습을 완성합니다.")}
             </p>
           </div>
           {[
             { h: "강의", items: ["전체 강의", "수능 라이브", "내신 패키지", "단과 VOD"] },
             { h: "지원", items: ["수강 신청 가이드", "환불 정책", "FAQ", "1:1 문의"] },
             { h: "회사", items: ["브랜드 소개", "강사진", "공지사항", "채용"] },
-            { h: "법적 고지", items: ["이용약관", "개인정보처리방침", "사업자 정보", "분쟁해결"] },
-          ].map((col) => (
+            { h: "법적 고지", items: ["이용약관", "개인정보처리방침", "환불규정", "사업자 정보"] },
+          ].map((col) => {
+            const LEGAL_ROUTES = { "이용약관": "/terms", "개인정보처리방침": "/privacy", "환불규정": "/refund" };
+            return (
             <div key={col.h}>
               <div className="label-cap" style={{ color: "rgba(245,241,233,0.5)", marginBottom: 14 }}>{col.h}</div>
               <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 10 }}>
-                {col.items.map((i) => (
-                  <li key={i}><a href="#/" onClick={(e) => e.preventDefault()} style={{ fontSize: 13, color: "rgba(245,241,233,0.85)" }}>{i}</a></li>
-                ))}
+                {col.items.map((i) => {
+                  const to = LEGAL_ROUTES[i];
+                  return (
+                    <li key={i}><a href={to ? "#" + to : "#/"} onClick={(e) => { e.preventDefault(); if (to) navigate(to); }} style={{ fontSize: 13, color: "rgba(245,241,233,0.85)", cursor: "pointer" }}>{i}</a></li>
+                  );
+                })}
               </ul>
             </div>
-          ))}
+            );
+          })}
         </div>
         <div style={{ borderTop: "1px solid rgba(245,241,233,0.18)", paddingTop: 24, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
           <div style={{ fontSize: 12, color: "rgba(245,241,233,0.5)" }}>

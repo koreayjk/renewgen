@@ -56,6 +56,9 @@ function Router() {
   if (seg[0] === "curriculum") return <CurriculumPage />;
   if (seg[0] === "admissions") return <AdmissionsPage />;
   if (seg[0] === "faq") return <FaqPage />;
+  if (seg[0] === "terms") return <TermsPage />;
+  if (seg[0] === "privacy") return <PrivacyPage />;
+  if (seg[0] === "refund") return <RefundPage />;
   if (seg[0] === "player") return <PlayerPage courseId={seg[1]} />;
   if (seg[0] === "community") return <CommunityPage />;
   if (seg[0] === "login") return <LoginPage />;

@@ -252,8 +252,10 @@ function RCScoreEditor({ st, onScoreChange }) {
       </summary>
       <div style={{ padding: "8px 16px 16px", display: "grid", gap: 6 }}>
         {subs.map(([sub, v]) => (
-          <div key={sub} style={{ display: "grid", gridTemplateColumns: "1fr 90px 50px", gap: 10, alignItems: "center" }}>
-            <span style={{ fontSize: 13 }}>{sub}</span>
+          // key 에 현재 점수를 포함 → 저장/클라우드 동기화로 값이 바뀌면 입력칸이 remount 되어
+          //   항상 실제 저장값을 표시(비제어 defaultValue 의 잔상 방지).
+          <div key={sub + "=" + (v.score == null ? "" : v.score)} style={{ display: "grid", gridTemplateColumns: "1fr 90px 50px", gap: 10, alignItems: "center" }}>
+            <span style={{ fontSize: 13 }}>{rcSubjShort(sub)}</span>
             <input type="number" defaultValue={v.score != null ? v.score : ""} min="0" max={v.max || 100} step="0.1" placeholder="—"
               onBlur={(e) => set(sub, e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}

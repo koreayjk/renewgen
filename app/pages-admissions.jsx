@@ -129,7 +129,7 @@ function AdmissionsPage() {
           <div style={{ marginTop: 36, background: A_NAVY, borderRadius: 16, padding: "40px 44px", display: "grid", gridTemplateColumns: "1fr auto", gap: 24, alignItems: "center" }}>
             <div style={{ color: "#fff" }}>
               <h3 style={{ margin: 0, fontWeight: 900, fontSize: 28, letterSpacing: "-0.035em" }}>지금, 점수로 증명할 차례입니다.</h3>
-              <p style={{ margin: "10px 0 0", fontSize: 15.5, color: "rgba(255,255,255,0.78)", fontWeight: 500 }}>7일 무료 체험으로 리뉴젠의 실시간 수업을 먼저 경험해보세요.</p>
+              <p style={{ margin: "10px 0 0", fontSize: 15.5, color: "rgba(255,255,255,0.78)", fontWeight: 500 }}>{eduText("7일 무료 체험으로 리뉴젠의 실시간 수업을 먼저 경험해보세요.", "7일 무료 체험으로 리뉴젠의 강의를 먼저 경험해보세요.")}</p>
             </div>
             <div style={{ display: "flex", gap: 10 }}>
               <button onClick={() => navigate("/signup")} style={{ background: A_YEL, color: A_NAVY, fontWeight: 900, fontSize: 15, border: 0, height: 54, padding: "0 26px", borderRadius: 10, cursor: "pointer" }}>7일 무료 체험</button>

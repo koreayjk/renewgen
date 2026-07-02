@@ -341,7 +341,7 @@ function SiteFooter() {
         </div>
         <div style={{ borderTop: "1px solid rgba(245,241,233,0.18)", paddingTop: 24, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
           <div style={{ fontSize: 12, color: "rgba(245,241,233,0.5)" }}>
-            ㈜리뉴젠 · 대표 강이수 · 사업자등록 215-87-01284 · 서울특별시 강남구 테헤란로 318, 7층 · 통신판매업 2026-서울강남-0418
+            리뉴젠아카데미 · 대표 지예은 · 대전광역시 유성구 은구비남로33번길 13-8, 3166호(지족동, 양지빌딩)
           </div>
           <div style={{ fontFamily: "var(--font-en)", fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(245,241,233,0.4)" }}>
             © Renewjen Academy · MMXXVI

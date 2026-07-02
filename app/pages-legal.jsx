@@ -15,14 +15,15 @@ const LG_MUTED = "var(--acad-muted)";
 
 // 한 곳에서 관리하는 사업자/연락처 정보 (실제 값으로 확정해 주세요)
 const LEGAL_INFO = {
-  company: "㈜리뉴젠",
+  company: "리뉴젠아카데미",
   service: "리뉴젠 아카데미",
-  ceo: "강이수",
-  bizNo: "215-87-01284",
-  mailOrder: "2026-서울강남-0418",
-  address: "서울특별시 강남구 테헤란로 318, 7층",
+  ceo: "지예은",
+  bizNo: "",                            // 신규 사업자 등록 후 기입 (전자상거래 필수 표기)
+  mailOrder: "",                        // 통신판매업 신고 후 기입
+  address: "대전광역시 유성구 은구비남로33번길 13-8, 3166호(지족동, 양지빌딩)",
+  bizType: "도매 및 소매업 / 전자상거래 소매업",  // 업태 / 종목
   email: "help@renewgen.com",          // ← 실제 문의 이메일로 변경
-  privacyOfficer: "강이수",            // 개인정보 보호책임자
+  privacyOfficer: "지예은",            // 개인정보 보호책임자
   effectiveDate: "2026년 6월 28일",     // 시행일
 };
 
@@ -43,8 +44,17 @@ function LegalLayout({ tag, title, sub, children }) {
           {children}
           <div style={{ marginTop: 40, paddingTop: 20, borderTop: "1px solid " + LG_LINE, fontSize: 13, color: LG_MUTED, lineHeight: 1.7 }}>
             <div>시행일: {LEGAL_INFO.effectiveDate}</div>
-            <div style={{ marginTop: 4 }}>{LEGAL_INFO.company} · 대표 {LEGAL_INFO.ceo} · 사업자등록번호 {LEGAL_INFO.bizNo} · 통신판매업신고 {LEGAL_INFO.mailOrder}</div>
-            <div style={{ marginTop: 2 }}>{LEGAL_INFO.address} · 문의 {LEGAL_INFO.email}</div>
+            <div style={{ marginTop: 4 }}>{[
+              LEGAL_INFO.company,
+              "대표 " + LEGAL_INFO.ceo,
+              LEGAL_INFO.bizNo && ("사업자등록번호 " + LEGAL_INFO.bizNo),
+              LEGAL_INFO.mailOrder && ("통신판매업신고 " + LEGAL_INFO.mailOrder),
+            ].filter(Boolean).join(" · ")}</div>
+            <div style={{ marginTop: 2 }}>{[
+              LEGAL_INFO.address,
+              LEGAL_INFO.bizType && ("업태·종목 " + LEGAL_INFO.bizType),
+              "문의 " + LEGAL_INFO.email,
+            ].filter(Boolean).join(" · ")}</div>
           </div>
         </div>
       </section>

@@ -67,13 +67,15 @@ function AcadHero() {
           {eduText("대한민국 기독교 교육 1위 · 국내·해외 입시", "국내·해외 입시 전문 원격 학원")}
         </span>
         <h1 className="acad-headline" style={{ color: "#fff", fontSize: "clamp(36px, 4.6vw, 62px)", lineHeight: 1.12, letterSpacing: "-0.045em", margin: "24px 0 0" }}>
-          {!window.RJ_EDU_MODE && <>대한민국 기독교 교육 <em style={{ fontStyle: "normal", color: "var(--acad-yellow)" }}>1위</em><br /></>}
-          국내·해외 입시 <em style={{ fontStyle: "normal", color: "var(--acad-yellow)" }}>TCS</em>,<br />
-          <em style={{ fontStyle: "normal", color: "var(--acad-yellow)" }}>Total Care System</em>.
+          {window.RJ_EDU_MODE ? (
+            <>중고등 온라인 보습학원<br />국어 · 영어 · 수학 · 사회 · 과학<br /><em style={{ fontStyle: "normal", color: "var(--acad-yellow)" }}>온라인 학습</em></>
+          ) : (
+            <>대한민국 기독교 교육 <em style={{ fontStyle: "normal", color: "var(--acad-yellow)" }}>1위</em><br />국내·해외 입시 <em style={{ fontStyle: "normal", color: "var(--acad-yellow)" }}>TCS</em>,<br /><em style={{ fontStyle: "normal", color: "var(--acad-yellow)" }}>Total Care System</em>.</>
+          )}
         </h1>
         <p style={{ color: "rgba(255,255,255,0.9)", fontSize: "clamp(16px, 1.55vw, 20px)", lineHeight: 1.72, maxWidth: 700, marginTop: 24, fontWeight: 500 }}>
           {eduText("리뉴젠 아카데미는 온라인 실시간 수업으로, 기독교 관점의 교과목 학습을 제공합니다.", "리뉴젠 아카데미는 녹화 강의로, 체계적인 교과목 학습을 제공합니다.")}<br />
-          검정고시부터 수능·토플까지 — 끊김 없는 한 주의 학습을 완성하세요.
+          {eduText("검정고시부터 수능·토플까지 — 끊김 없는 한 주의 학습을 완성하세요.", "검정고시부터 수능까지 — 끊김 없는 한 주의 학습을 완성하세요.")}
         </p>
       </div>
     </section>

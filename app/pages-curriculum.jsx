@@ -47,11 +47,10 @@ function CurriculumPage() {
         <div className="container-wide" style={{ position: "relative", paddingTop: 72, paddingBottom: 64 }}>
           <span style={{ display: "inline-block", background: YEL, color: NAVY, fontWeight: 800, fontSize: 13, padding: "7px 13px", borderRadius: 5, letterSpacing: "0.01em" }}>커리큘럼 · CURRICULUM</span>
           <h1 style={{ fontWeight: 900, fontSize: "clamp(44px, 5.4vw, 74px)", letterSpacing: "-0.045em", lineHeight: 1.06, margin: "22px 0 0" }}>
-            연 <em style={{ fontStyle: "normal", color: YEL }}>3학기</em> 시스템.<br />4년이면 중·고등 과정이 끝납니다.
+            연 <em style={{ fontStyle: "normal", color: YEL }}>3학기</em> 시스템.<br />{eduText("4년이면 중·고등 과정이 끝납니다.", "4년 커리큘럼으로 중·고등 교과를 체계적으로 학습합니다.")}
           </h1>
           <p style={{ fontSize: 17, lineHeight: 1.65, color: "rgba(255,255,255,0.78)", maxWidth: 640, marginTop: 22, fontWeight: 500 }}>
-            검정고시부터 수능까지 — 국어·수학·영어·탐구(사회·과학·한국사·도덕)의 중·고등 기본 교과목을
-            1년 3분기 체제로 망라합니다.
+            {eduText("검정고시부터 수능까지 — 국어·수학·영어·탐구(사회·과학·한국사·도덕)의 중·고등 기본 교과목을 1년 3분기 체제로 망라합니다.", "검정고시부터 수능까지 — 국어·수학·영어·사회(한국사, 도덕)·과학의 중·고등 기본 교과목을 1년 3분기 체제로 망라합니다.")}
           </p>
         </div>
       </section>
@@ -111,13 +110,15 @@ function PurposeStaircase() {
 
 // ── 운영 시스템 — ClassIn + 5 features ─────────────────────────────
 function OperatingSystem() {
-  const feats = [
+  const featsAll = [
     { n: "01", t: eduText("온라인 실시간 수업", "녹화 강의 수강"), d: eduText("인터넷이 되는 어디서든 수업을 듣습니다. 해외선교 중에도 학습을 이어갈 수 있습니다.", "인터넷이 되는 어디서든 수업을 듣습니다. 해외에 있어도 학습을 이어갈 수 있습니다."), icon: "live" },
     { n: "02", t: "녹화본 무제한 수강", d: "모든 수업은 녹화됩니다. 참여가 어려웠거나 이해가 덜 됐던 부분을 영상으로 계속 공부합니다.", icon: "play" },
     { n: "03", t: "LMS 시스템", d: eduText("쌍방향 칠판 등 교육 툴을 갖춘 ‘클래스인’으로 효과적인 수업을. 출결·과제·점수로 학습 상태를 진단합니다.", "다양한 학습 도구를 갖춘 학습관리 시스템(LMS)으로 효과적인 학습을. 출결·과제·점수로 학습 상태를 진단합니다."), icon: "book" },
     { n: "04", t: "오프라인 모임", d: "개강·종강 전후 오프라인 캠프, 과목별 집중 캠프, 찾아가는 미니클래스로 학습을 추가 지원합니다.", icon: "chat" },
     { n: "05", t: "성적표", d: "월간평가 시 성적표가 발송되며, 누적 점수와 그래프로 학습 상태와 성장을 확인합니다.", icon: "check" },
   ];
+  // EDU 모드: '오프라인 모임' 박스 숨김
+  const feats = window.RJ_EDU_MODE ? featsAll.filter((f) => f.n !== "04") : featsAll;
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 24, marginTop: 8 }}>
       {/* ClassIn banner */}
@@ -134,7 +135,7 @@ function OperatingSystem() {
         </div>
       </div>
       {/* 5 features */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(" + feats.length + ", 1fr)", gap: 14 }}>
         {feats.map((f) => (
           <div key={f.n} style={{ background: PAPER, border: "1.5px solid " + LINE, borderRadius: 14, padding: "22px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>

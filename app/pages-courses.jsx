@@ -36,7 +36,7 @@ function CoursesPage() {
     { id: "science", ko: "과학" },
     { id: "toefl", ko: "토플" },
     { id: "toeic", ko: "토익" },
-  ];
+  ].filter((s) => !(window.RJ_EDU_MODE && (s.id === "toefl" || s.id === "toeic")));
 
   return (
     <div className="page-enter">

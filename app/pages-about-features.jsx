@@ -479,9 +479,11 @@ function AboutCompare() {
     { k: "평가", usHead: "시험관리", us: ["진단평가", "월말평가", "성적표 배부"], them: "없음" },
     { k: "학생관리", usHead: "LMS 시스템", us: ["출결관리", "숙제체크", "오프라인 캠프"], them: "없음" },
   ];
-  // EDU MODE: 강의방식·소통방식(실시간·쌍방향) 행만 가림
+  // EDU MODE: 강의방식·소통방식(실시간·쌍방향) 행 숨김 + 학생관리(출결관리→수강 내역 관리, 오프라인 캠프 삭제)
   const rows = window.RJ_EDU_MODE
-    ? rowsAll.filter((r) => r.k !== "강의방식" && r.k !== "소통방식")
+    ? rowsAll
+        .filter((r) => r.k !== "강의방식" && r.k !== "소통방식")
+        .map((r) => (r.k === "학생관리" ? { ...r, us: ["수강 내역 관리", "숙제체크"] } : r))
     : rowsAll;
   return (
     <section style={{ background: AB.paper, borderTop: "1px solid " + AB.line }}>
@@ -609,7 +611,7 @@ function AboutResults() {
           <ABResultTable data={AB_RESULTS.suneung} />
           <div style={{ display: "grid", gap: 22 }}>
             <ABResultTable data={AB_RESULTS.hakpyeong} />
-            <ABResultTable data={AB_RESULTS.toefl} />
+            {!window.RJ_EDU_MODE && <ABResultTable data={AB_RESULTS.toefl} />}
           </div>
         </div>
         <p style={{ textAlign: "center", marginTop: 16, fontSize: 13, color: AB.muted, fontWeight: 500 }}>* 개인정보 보호를 위해 수강생 성함은 일부만 표기합니다.</p>

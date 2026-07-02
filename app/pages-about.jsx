@@ -24,18 +24,19 @@ function AboutPage() {
           <span style={{ display: "inline-block", background: YL, color: NV, fontWeight: 800, fontSize: 13, padding: "7px 13px", borderRadius: 5, whiteSpace: "nowrap" }}>About</span>
           <h1 style={{ fontWeight: 900, fontSize: "clamp(42px, 5.2vw, 70px)", letterSpacing: "-0.045em", lineHeight: 1.07, margin: "20px 0 0" }}>
             {window.RJ_EDU_MODE ? (
-              <>탄탄한 <em style={{ fontStyle: "normal", color: YL }}>기본기</em>로,<br />다음세대를 <em style={{ fontStyle: "normal", color: YL }}>세웁니다</em>.</>
+              <>노베이스의 학생도 <em style={{ fontStyle: "normal", color: YL }}>기초 과정</em>을 익혀,<br />교과목 내용을 이해하고 <em style={{ fontStyle: "normal", color: YL }}>체화</em>할 수 있게 합니다.</>
             ) : (
               <>기독교 교육을 <em style={{ fontStyle: "normal", color: YL }}>수호</em>하고,<br />다음세대를 <em style={{ fontStyle: "normal", color: YL }}>세웁니다</em>.</>
             )}
           </h1>
           <p style={{ fontSize: 17, lineHeight: 1.65, color: "rgba(255,255,255,0.8)", maxWidth: 640, marginTop: 20, fontWeight: 500 }}>
-            {eduText("리뉴젠 아카데미는 대한민국의 기독교 교육을 수호하고 발전시키기 위해 설립된 기독교 교육 전문 기관입니다. 아카데미의 비전과 설립 목적, 그리고 운영 시스템을 소개합니다.", "리뉴젠 아카데미는 검정고시부터 수능·토플까지 체계적인 원격 교육을 제공하는 교육 전문 기관입니다. 아카데미의 비전과 설립 목적, 그리고 운영 시스템을 소개합니다.")}
+            {eduText("리뉴젠 아카데미는 대한민국의 기독교 교육을 수호하고 발전시키기 위해 설립된 기독교 교육 전문 기관입니다. 아카데미의 비전과 설립 목적, 그리고 운영 시스템을 소개합니다.", "리뉴젠 아카데미는 검정고시부터 수능까지 체계적인 원격 교육을 제공하는 온라인 보습학원입니다. 아카데미의 운영 시스템을 소개합니다.")}
           </p>
         </div>
       </section>
 
-      {/* 비전 */}
+      {/* 비전 · 설립 목적 — 교육청 모드에서 숨김 */}
+      {!window.RJ_EDU_MODE && (<>
       <section style={{ background: PP }}>
         <div className="container-wide" style={{ paddingTop: 80, paddingBottom: 24, display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 56, alignItems: "center" }}>
           <div>
@@ -65,6 +66,7 @@ function AboutPage() {
           <PurposeStaircase />
         </div>
       </section>
+      </>)}
 
       {/* 운영 시스템 */}
       <section style={{ background: CR, marginTop: 56 }}>

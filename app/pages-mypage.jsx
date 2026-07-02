@@ -203,8 +203,8 @@ function MyPage() {
               <div className="ci-kpi"><div className="lab"><span className="ico"><Icon name="signal" size={16} /></span> 연속 학습</div><div className="num">—</div><div className="sub">스트릭</div></div>
             </div>
 
-            {/* auto-login entry — only show when live courses exist today */}
-            {todayLive.length > 0 && (
+            {/* auto-login entry — only show when live courses exist today (EDU 모드에서 숨김) */}
+            {!window.RJ_EDU_MODE && todayLive.length > 0 && (
               <div>
                 <CiHead title="원클릭 강의실 입장" api="Login URL"
                   sub="자동 로그인으로 계정·비밀번호 입력 없이 바로 입장합니다 · 시작 10분 전부터 활성화"
@@ -215,7 +215,7 @@ function MyPage() {
 
             {/* enrolled progress */}
             <div>
-              <CiHead title="수강 중인 강의" api="Classroom" sub="라이브 + 다시보기 진도" />
+              <CiHead title="수강 중인 강의" api="Classroom" sub={eduText("라이브 + 다시보기 진도", "녹화 강의 진도")} />
               <div style={{ display: "grid", gap: 14 }}>
                 {enrolled.map((c) => {
                   const h = history[c.id] || { progressPct: 24, lessonIdx: 6 };
@@ -238,12 +238,14 @@ function MyPage() {
                         </div>
                       </div>
                       <div style={{ display: "flex", gap: 8 }}>
-                        {c.showcaseId || c.vimeoId
+                        {(c.showcaseId || c.vimeoId)
                           ? <button className="ci-act navy" onClick={() => navigate("/player/" + c.id)}><Icon name="play" size={13} /> 강의 보기</button>
-                          : <>
-                              <button className="ci-act navy" onClick={() => navigate("/live/" + c.id)}><Icon name="live" size={13} /> 라이브 입장</button>
-                              <button className="ci-act" onClick={() => navigate("/player/" + c.id)}><Icon name="play" size={13} /> 이어보기</button>
-                            </>}
+                          : window.RJ_EDU_MODE
+                            ? <button className="ci-act navy" onClick={() => navigate("/player/" + c.id)}><Icon name="play" size={13} /> 강의 보기</button>
+                            : <>
+                                <button className="ci-act navy" onClick={() => navigate("/live/" + c.id)}><Icon name="live" size={13} /> 라이브 입장</button>
+                                <button className="ci-act" onClick={() => navigate("/player/" + c.id)}><Icon name="play" size={13} /> 이어보기</button>
+                              </>}
                       </div>
                     </div>
                   );

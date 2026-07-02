@@ -270,8 +270,9 @@ function SiteHeader() {
     <header className="site-header">
       <div className="container-wide site-header-inner">
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <a href="#/" className="brand-wordmark brand-wordmark--logo" onClick={(e) => { e.preventDefault(); navigate("/"); }}>
+          <a href="#/" className="brand-wordmark brand-wordmark--logo" onClick={(e) => { e.preventDefault(); navigate("/"); }} style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
             <img src="assets/logo-full.png" alt="리뉴젠 아카데미 · Re:newgen Academy" className="brand-logo-full" />
+            <span style={{ paddingLeft: 10, borderLeft: "1px solid rgba(0,29,61,0.18)", fontSize: 15, fontWeight: 800, color: "var(--acad-navy, #001D3D)", letterSpacing: "-0.02em", whiteSpace: "nowrap" }}>원격학원</span>
           </a>
         </div>
         <nav className="main-nav">

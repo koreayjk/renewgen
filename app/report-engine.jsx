@@ -400,12 +400,44 @@ function genDemoStore() {
   return saveStore({ rounds });
 }
 
-// ── ClassIn 백엔드(scores.php) 연동 ───────────────────────────────
-//   홈페이지에서 백엔드 위치를 바꾸려면 window.RJ_CLASSIN_API 를 지정.
-//   (예: <script>window.RJ_CLASSIN_API='https://renewgen.com/classin/api'</script>)
-const RJ_CLASSIN_API = (typeof window !== "undefined" && window.RJ_CLASSIN_API) || "/classin/api";
+// ── ClassIn 백엔드 연동 ────────────────────────────────────────────
+//   기본: Supabase Edge Function(classin-scores) 을 호출합니다.
+//   구(舊) Cafe24 PHP(scores.php) 로 강제하려면 window.RJ_CLASSIN_API 지정:
+//     <script>window.RJ_CLASSIN_API='https://renewgenacademy.com/classin/api'</script>
+const RJ_CLASSIN_API = (typeof window !== "undefined" && window.RJ_CLASSIN_API) || "";
+const RJ_CLASSIN_MODE = RJ_CLASSIN_API ? "php" : "supabase";
 
+// path 예: "/scores.php?action=activities&cmd=..." — Supabase 모드에선 쿼리만 사용
 async function ciFetch(path) {
+  if (RJ_CLASSIN_MODE === "supabase") {
+    const base = (typeof window !== "undefined" && window.SUPABASE_URL) || "";
+    if (!base) throw new Error("SUPABASE_URL 미설정");
+    const qi = path.indexOf("?");
+    const qs = qi >= 0 ? path.slice(qi) : "";
+    // 로그인한 관리자 JWT 를 실어 보냄(함수가 관리자 권한을 검증)
+    let bearer = (typeof window !== "undefined" && window.SUPABASE_ANON_KEY) || "";
+    try {
+      const sb = window.getSupabase && window.getSupabase();
+      const { data: { session } } = await sb.auth.getSession();
+      if (session && session.access_token) bearer = session.access_token;
+    } catch (e) { /* 세션 없으면 anon 키로 시도 → 401 */ }
+    const res = await fetch(base + "/functions/v1/classin-scores" + qs, {
+      headers: {
+        Accept: "application/json",
+        Authorization: "Bearer " + bearer,
+        apikey: (typeof window !== "undefined" && window.SUPABASE_ANON_KEY) || "",
+      },
+    });
+    if (!res.ok) {
+      let msg = "HTTP " + res.status;
+      try { const ej = await res.json(); if (ej && ej.msg) msg = ej.msg; } catch (e) {}
+      throw new Error(msg);
+    }
+    const j = await res.json();
+    if (j && j.ok === false) throw new Error(j.msg || "server error");
+    return j;
+  }
+  // 구 PHP 모드
   const res = await fetch(RJ_CLASSIN_API + path, { headers: { Accept: "application/json" } });
   if (!res.ok) throw new Error("HTTP " + res.status);
   const j = await res.json();

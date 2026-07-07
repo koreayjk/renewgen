@@ -630,10 +630,10 @@ function ClassInImportModal({ defaultLabel, onClose, onImport }) {
 
           {phase === "error" && (
             <div style={{ padding: "18px 16px", borderRadius: 10, background: "rgba(192,57,43,0.06)", border: "1px solid rgba(192,57,43,0.25)" }}>
-              <div style={{ fontWeight: 800, color: "#C0392B", fontSize: 13.5 }}>클래스인 백엔드(scores.php)에 연결할 수 없습니다</div>
+              <div style={{ fontWeight: 800, color: "#C0392B", fontSize: 13.5 }}>클래스인 성적 백엔드에 연결할 수 없습니다</div>
               <p style={{ fontSize: 12.5, color: "var(--ci-muted)", lineHeight: 1.6, margin: "8px 0 0" }}>
-                실서버에서는 <code>/classin/api/scores.php</code> 가 hook.php 로 받은 OMR 답안카드 성적을 돌려줍니다.
-                지금은 자동 동기화 결과를 ‘미리보기’로 생성해 화면을 확인할 수 있습니다.
+                실서버에서는 <code>classin-scores</code> 함수가 <code>classin-hook</code> 으로 받은 OMR 답안카드 성적을 돌려줍니다.
+                아직 성적이 수신되지 않았거나 함수가 배포되지 않았다면, 자동 동기화 결과를 ‘미리보기’로 생성해 화면을 확인할 수 있습니다.
               </p>
               <div style={{ fontSize: 11, color: "var(--ci-muted)", marginTop: 8, fontFamily: "var(--font-en)", wordBreak: "break-all" }}>{err}</div>
               <div style={{ display: "flex", gap: 8, marginTop: 14 }}>

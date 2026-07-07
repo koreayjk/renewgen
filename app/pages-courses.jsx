@@ -9,7 +9,6 @@ function CoursesPage() {
   const { navigate } = useApp();
   const [subject, setSubject] = useStateC("all");
   const [level, setLevel] = useStateC("all");
-  const [view, setView] = useStateC("grid"); // grid | list
   const [sort, setSort] = useStateC("popular");
   const [query, setQuery] = useStateC("");
 
@@ -87,30 +86,14 @@ function CoursesPage() {
           <div style={{ fontSize: 14, color: "var(--rj-muted)" }}>
             <span className="num-en" style={{ color: "var(--rj-ink)", fontWeight: 600 }}>{filtered.length}</span>개의 강의
           </div>
-          <div style={{ display: "flex", gap: 4, padding: 4, border: "1px solid var(--rj-line)", borderRadius: 999 }}>
-            <button onClick={() => setView("grid")} className="btn btn-sm" style={{ background: view === "grid" ? "var(--rj-ink)" : "transparent", color: view === "grid" ? "var(--rj-paper)" : "var(--rj-ink)", height: 30 }}>그리드</button>
-            <button onClick={() => setView("list")} className="btn btn-sm" style={{ background: view === "list" ? "var(--rj-ink)" : "transparent", color: view === "list" ? "var(--rj-paper)" : "var(--rj-ink)", height: 30 }}>리스트</button>
-          </div>
         </div>
 
-        {view === "grid" ? (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 20, paddingBottom: 80 }}>
-            {filtered.map((c) => (
-              <div key={c.id} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <CoursePoster course={c} onClick={() => navigate("/courses/" + c.id)} />
-                <CourseMetaUnderPoster course={c} />
-              </div>
-            ))}
-            {filtered.length === 0 && <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: 80, color: "var(--rj-muted)" }}>해당하는 강의가 없습니다</div>}
-          </div>
-        ) : (
-          <div style={{ display: "grid", gap: 16, paddingBottom: 80 }}>
-            {filtered.map((c) => (
-              <CourseRowCard key={c.id} course={c} onOpen={() => navigate("/courses/" + c.id)} />
-            ))}
-            {filtered.length === 0 && <div style={{ textAlign: "center", padding: 80, color: "var(--rj-muted)" }}>해당하는 강의가 없습니다</div>}
-          </div>
-        )}
+        <div style={{ display: "grid", gap: 16, paddingBottom: 80 }}>
+          {filtered.map((c) => (
+            <CourseRowCard key={c.id} course={c} onOpen={() => navigate("/courses/" + c.id)} />
+          ))}
+          {filtered.length === 0 && <div style={{ textAlign: "center", padding: 80, color: "var(--rj-muted)" }}>해당하는 강의가 없습니다</div>}
+        </div>
       </section>
     </div>
   );

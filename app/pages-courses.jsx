@@ -134,7 +134,6 @@ function CourseDetailPage({ courseId }) {
   const course = findCourse(courseId);
   const ins = course ? findInstructor(course.instructor) : null;
   const [tab, setTab] = useStateC("curriculum");
-  const [previewing, setPreviewing] = useStateC(false);
   const owned = user && ACCOUNT.enrolled.includes(courseId);
   const inCart = cart.some((c) => c.courseId === courseId);
   const reviews = REVIEWS.filter((r) => r.courseId === courseId);
@@ -183,15 +182,15 @@ function CourseDetailPage({ courseId }) {
 
             {/* Preview / instructor card */}
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <div style={{ position: "relative", aspectRatio: "16/10", background: "#000", borderRadius: "var(--rj-r)", overflow: "hidden", border: "1px solid rgba(245,241,233,0.18)" }}>
+              <div onClick={() => navigate("/player/" + course.id)} style={{ position: "relative", aspectRatio: "16/10", background: "#000", borderRadius: "var(--rj-r)", overflow: "hidden", border: "1px solid rgba(245,241,233,0.18)", cursor: "pointer" }}>
                 <div className="dot-grid" style={{ position: "absolute", inset: 0, opacity: 0.18 }} />
                 <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
-                  <button className="btn-circle" style={{ width: 72, height: 72, background: "var(--rj-accent)", color: "var(--rj-ink)" }} onClick={() => setPreviewing(true)}>
+                  <button className="btn-circle" style={{ width: 72, height: 72, background: "var(--rj-accent)", color: "var(--rj-ink)" }} onClick={() => navigate("/player/" + course.id)}>
                     <Icon name="play" size={28} />
                   </button>
-                  <div style={{ fontFamily: "var(--font-en)", fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(245,241,233,0.8)" }}>Watch · 미리보기 3분</div>
+                  <div style={{ fontFamily: "var(--font-en)", fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(245,241,233,0.8)" }}>강의 보기</div>
                 </div>
-                <span className="chip" style={{ position: "absolute", top: 14, left: 14, background: "rgba(0,0,0,0.6)", color: "var(--rj-paper)", borderColor: "transparent", backdropFilter: "blur(6px)" }}>OT 영상 · 03:24</span>
+                <span className="chip" style={{ position: "absolute", top: 14, left: 14, background: "rgba(0,0,0,0.6)", color: "var(--rj-paper)", borderColor: "transparent", backdropFilter: "blur(6px)" }}>강의 재생</span>
               </div>
               <div style={{ border: "1px solid rgba(245,241,233,0.18)", borderRadius: "var(--rj-r)", padding: 20, display: "flex", gap: 16, alignItems: "center" }}>
                 <span className="avatar avatar-lg" style={{ background: "var(--rj-paper)", color: "var(--rj-ink)" }}>{ins?.initials}</span>
@@ -312,7 +311,6 @@ function CourseDetailPage({ courseId }) {
         </div>
       </section>
 
-      {previewing && <PreviewModal onClose={() => setPreviewing(false)} course={course} />}
     </div>
   );
 }

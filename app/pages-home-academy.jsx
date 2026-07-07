@@ -22,9 +22,14 @@ function HomeAcademy() {
         </>
       )}
       <AboutCompare />
-      <AboutResults />
-      <AcadPhotoBand />
-      <AcadReviews />
+      {/* EDU MODE: 성적표(점수 증명)·수업현장 포토밴드·수강후기 숨김 — 교육청 실사 후 복원 */}
+      {!edu && (
+        <>
+          <AboutResults />
+          <AcadPhotoBand />
+          <AcadReviews />
+        </>
+      )}
     </div>
   );
 }

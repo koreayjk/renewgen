@@ -54,7 +54,7 @@ function Router() {
   if (seg[0] === "teacher") return (window.isStaff && window.isStaff(user)) ? <TeacherPage /> : <AdminDenied user={user} />;
   if (seg[0] === "about") return window.RJ_EDU_MODE ? <HomePage /> : <AboutPage />;
   if (seg[0] === "curriculum") return <CurriculumPage />;
-  if (seg[0] === "admissions") return <AdmissionsPage />;
+  if (seg[0] === "admissions") return window.RJ_EDU_MODE ? <HomePage /> : <AdmissionsPage />;
   if (seg[0] === "faq") return <FaqPage />;
   if (seg[0] === "terms") return <TermsPage />;
   if (seg[0] === "privacy") return <PrivacyPage />;

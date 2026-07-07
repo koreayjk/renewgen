@@ -25,8 +25,8 @@ return [
     'HOOK_TOKEN' => '',
 
     // 우리 홈페이지(프론트엔드) 도메인 — CORS 허용용
-    // 예: 'https://renewgen.cafe24.com'
-    'SITE_ORIGIN' => 'https://renewgen.com',
+    // 예: 'https://renewgenacademy.com'
+    'SITE_ORIGIN' => 'https://renewgenacademy.com',
 
     // ⚠️ 토스페이먼츠 결제위젯 '시크릿 키'(gsk) — 절대 외부 노출 금지.
     //   개발자센터 → 결제위젯 연동 키에서 확인. 클라이언트 키(gck)와 한 세트여야 함.

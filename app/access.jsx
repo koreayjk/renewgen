@@ -19,6 +19,14 @@ function demoState() {
 }
 function saveDemoState(s) { try { localStorage.setItem("rj-access", JSON.stringify(s)); } catch (e) {} }
 
+// 프리패스(전체 강의 무료 시청) 계정 — 관리자가 코드로 직접 지정.
+//   이 목록의 이메일은 구독/구매 없이 모든 강의를 볼 수 있습니다.
+//   (해제하려면 목록에서 이메일을 지우고 재배포)
+const RJ_FREEPASS_EMAILS = ["student@gmail.com"];
+function isFreepass(user) {
+  return !!(user && user.email && RJ_FREEPASS_EMAILS.includes(String(user.email).trim().toLowerCase()));
+}
+
 // 현재 사용자가 "구독자"인가?
 async function isSubscriber(user) {
   if (!user) return false;
@@ -90,6 +98,7 @@ async function resolveAccess(user, course) {
   if (course && course.isFree) return { canWatch: true, reason: "free" };
   // 관리자·강사(staff)는 모든 강의를 미리보기·점검 목적으로 항상 시청 가능
   if (user && window.isStaff && window.isStaff(user)) return { canWatch: true, reason: "staff" };
+  if (isFreepass(user)) return { canWatch: true, reason: "subscriber" };  // 프리패스 계정 → 전체 강의
   if (!user) return { canWatch: false, reason: "need-login" };
   if (await isSubscriber(user)) return { canWatch: true, reason: "subscriber" };
   if (await hasPurchased(user, course.id)) return { canWatch: true, reason: "purchased" };
@@ -105,6 +114,6 @@ function demoBuyCourse(courseId) { const s = demoState(); if (!s.courses.include
 function demoReset() { saveDemoState({ sub: false, courses: [] }); }
 
 Object.assign(window, {
-  isSubscriber, hasPurchased, resolveAccess,
+  isSubscriber, hasPurchased, resolveAccess, isFreepass, rosterGrant,
   demoSubscribe, demoBuyCourse, demoReset, demoAccessState: demoState,
 });

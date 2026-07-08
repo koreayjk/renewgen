@@ -258,6 +258,7 @@ serve(async (req) => {
     // kind === "other" → 원본만 보관(위 1단계). 필요 시 나중에 backfill.
   } catch (_e) { /* 실패해도 200 — 원본은 events 에 있음 */ }
 
-  // 3) 클래스인이 기대하는 정상 수신 응답
-  return json({ errno: 1, error: "ok" });
+  // 3) 클래스인이 기대하는 정상 수신 응답 — 반드시 error_info 로 감싼 형식이어야 함
+  //    (평평한 {errno,error} 는 형식 오류 10003 을 유발)
+  return json({ error_info: { errno: 1, error: "程序正常执行" } });
 });

@@ -14,6 +14,10 @@ window.RJ_EDU_MODE = true;
 //   사용처: 공개 마케팅 페이지의 실시간/쌍방향/라이브 문구 → 녹화강의 표현으로 일괄 전환.
 window.eduText = (normal, edu) => (window.RJ_EDU_MODE ? edu : normal);
 
+// ▶ 공개 열람(교육청 실사용): true 이면 로그인·구매 없이 누구나 모든 강의를 시청.
+//   실사 종료 후 반드시 false 로 되돌리세요(원래 구독·구매 판매 모델로 복귀).
+window.RJ_PUBLIC_PREVIEW = true;
+
 const SUBJECTS = [
   { id: "math",    ko: "수학",   en: "Mathematics" },
   { id: "korean",  ko: "국어",   en: "Korean Literature" },

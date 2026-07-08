@@ -95,6 +95,8 @@ function rosterGrant(user, course) {
 // 종합 판정 → { canWatch, reason }
 //  reason: 'subscriber' | 'purchased' | 'enrolled' | 'staff' | 'free' | 'need-login' | 'locked'
 async function resolveAccess(user, course) {
+  // 교육청 실사 등 공개 열람 모드 — 로그인·구매 없이 모두 시청 가능
+  if (window.RJ_PUBLIC_PREVIEW) return { canWatch: true, reason: "free" };
   if (course && course.isFree) return { canWatch: true, reason: "free" };
   // 관리자·강사(staff)는 모든 강의를 미리보기·점검 목적으로 항상 시청 가능
   if (user && window.isStaff && window.isStaff(user)) return { canWatch: true, reason: "staff" };

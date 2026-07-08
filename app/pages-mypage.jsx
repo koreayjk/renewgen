@@ -45,7 +45,7 @@ function StudentCoursesPanel({ user, navigate }) {
   }
   const demo = (window.demoAccessState && window.demoAccessState()) || { sub: false, courses: [] };
   const isStaff = window.isStaff && window.isStaff(user);
-  const canWatch = (c) => isStaff || c.isFree || demo.sub
+  const canWatch = (c) => isStaff || c.isFree || demo.sub || window.RJ_PUBLIC_PREVIEW
     || (window.isFreepass && window.isFreepass(user))
     || (demo.courses || []).includes(c.id)
     || (window.rosterGrant && !!window.rosterGrant(user, c));

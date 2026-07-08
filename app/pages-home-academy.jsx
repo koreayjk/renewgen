@@ -69,13 +69,13 @@ function AcadHero() {
       <div style={{ position: "absolute", inset: 0, background: "linear-gradient(96deg, rgba(0,16,34,0.94) 0%, rgba(0,16,34,0.80) 40%, rgba(0,16,34,0.46) 78%, rgba(0,16,34,0.30) 100%)" }} />
       <div className="container-wide" style={{ position: "relative", paddingTop: 110, paddingBottom: 110 }}>
         <span style={{ display: "inline-block", background: "var(--acad-yellow)", color: "var(--acad-navy)", fontWeight: 800, fontSize: 13.5, padding: "8px 14px", borderRadius: 6, letterSpacing: "-0.01em" }}>
-          {eduText("대한민국 기독교 교육 1위 · 국내·해외 입시", "국내·해외 입시 전문 원격 학원")}
+          {eduText("대한민국 기독교 교육 1위 · 국내 입시", "국내 입시 전문 원격 학원")}
         </span>
         <h1 className="acad-headline" style={{ color: "#fff", fontSize: "clamp(36px, 4.6vw, 62px)", lineHeight: 1.12, letterSpacing: "-0.045em", margin: "24px 0 0" }}>
           {window.RJ_EDU_MODE ? (
             <>중고등 온라인 보습학원<br />국어 · 영어 · 수학 · 사회 · 과학<br /><em style={{ fontStyle: "normal", color: "var(--acad-yellow)" }}>온라인 학습</em></>
           ) : (
-            <>대한민국 기독교 교육 <em style={{ fontStyle: "normal", color: "var(--acad-yellow)" }}>1위</em><br />국내·해외 입시 <em style={{ fontStyle: "normal", color: "var(--acad-yellow)" }}>TCS</em>,<br /><em style={{ fontStyle: "normal", color: "var(--acad-yellow)" }}>Total Care System</em>.</>
+            <>대한민국 기독교 교육 <em style={{ fontStyle: "normal", color: "var(--acad-yellow)" }}>1위</em><br />국내 입시 <em style={{ fontStyle: "normal", color: "var(--acad-yellow)" }}>TCS</em>,<br /><em style={{ fontStyle: "normal", color: "var(--acad-yellow)" }}>Total Care System</em>.</>
           )}
         </h1>
         <p style={{ color: "rgba(255,255,255,0.9)", fontSize: "clamp(16px, 1.55vw, 20px)", lineHeight: 1.72, maxWidth: 700, marginTop: 24, fontWeight: 500 }}>

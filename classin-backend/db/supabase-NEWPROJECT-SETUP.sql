@@ -1,11 +1,9 @@
 -- ══════════════════════════════════════════════════════════════════
 --  리뉴젠 아카데미 — 새 Supabase 프로젝트 전체 설치 (이 파일 하나만 RUN)
 --  ──────────────────────────────────────────────────────────────────
---  Supabase → SQL Editor → New query → 이 파일 전체 붙여넣고 RUN.
---  모두 idempotent(여러 번 실행해도 안전). 실행 후 profiles 에서
---  본인 계정 role 을 'admin' 으로 바꾸세요.
---  포함: 기본(회원·강의·수강·시험) + 프로필보강 + 클래스인매핑 + 성적표
---       + 과제 + 결제 + 관리자저장소 + 클래스인 성적/전체 데이터
+--  Supabase → SQL Editor → New query → 전체 붙여넣고 RUN.
+--  모두 idempotent(여러 번 실행해도 안전 — policy/trigger 중복 자동 처리).
+--  실행 후 profiles 에서 본인 계정 role 을 'admin' 으로 바꾸세요.
 -- ══════════════════════════════════════════════════════════════════
 
 
@@ -54,10 +52,13 @@ create table if not exists public.profiles (
 alter table public.profiles enable row level security;
 
 -- 본인 프로필만 읽기/수정/생성
+drop policy if exists "profiles_select_own" on public.profiles;
 create policy "profiles_select_own" on public.profiles
   for select using (auth.uid() = id);
+drop policy if exists "profiles_insert_own" on public.profiles;
 create policy "profiles_insert_own" on public.profiles
   for insert with check (auth.uid() = id);
+drop policy if exists "profiles_update_own" on public.profiles;
 create policy "profiles_update_own" on public.profiles
   for update using (auth.uid() = id);
 
@@ -78,6 +79,7 @@ begin
   return new;
 end; $$;
 
+drop trigger if exists on_auth_user_created on auth.users;
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
@@ -104,6 +106,7 @@ create table if not exists public.courses (
 alter table public.courses enable row level security;
 
 -- 강의 목록은 누구나 볼 수 있음 (소개/카탈로그용)
+drop policy if exists "courses_public_read" on public.courses;
 create policy "courses_public_read" on public.courses
   for select using (true);
 
@@ -123,6 +126,7 @@ create table if not exists public.enrollments (
 alter table public.enrollments enable row level security;
 
 -- 본인 수강내역만 조회
+drop policy if exists "enrollments_select_own" on public.enrollments;
 create policy "enrollments_select_own" on public.enrollments
   for select using (auth.uid() = user_id);
 -- (등록 INSERT는 결제 검증 후 서버(Edge Function)에서 service_role 키로 처리 권장)
@@ -139,6 +143,7 @@ create table if not exists public.watch_progress (
 );
 
 alter table public.watch_progress enable row level security;
+drop policy if exists "watch_own_all" on public.watch_progress;
 create policy "watch_own_all" on public.watch_progress
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
@@ -190,7 +195,9 @@ alter table public.exam_attempts  enable row level security;
 --   (운영 시에는 profiles.role = 'teacher'/'admin' 으로 쓰기 제한 권장)
 drop policy if exists "exams read"  on public.exams;
 drop policy if exists "exams write" on public.exams;
+drop policy if exists "exams read" on public.exams;
 create policy "exams read"  on public.exams for select using ( auth.role() = 'authenticated' );
+drop policy if exists "exams write" on public.exams;
 create policy "exams write" on public.exams for all
   using ( auth.uid() is not null ) with check ( auth.uid() is not null );
 
@@ -198,16 +205,19 @@ create policy "exams write" on public.exams for all
 --   (강사 채점을 서버에서 하려면 service_role Edge Function 또는
 --    profiles.role 기반 정책을 추가하세요)
 drop policy if exists "attempts owner" on public.exam_attempts;
+drop policy if exists "attempts owner" on public.exam_attempts;
 create policy "attempts owner" on public.exam_attempts for all
   using ( auth.uid() = user_id ) with check ( auth.uid() = user_id );
 
 -- (선택) 강사/관리자가 모든 응시본을 읽고 채점하도록 하려면,
 -- profiles(id uuid, role text) 테이블이 있다고 가정하고 아래 정책을 추가:
 --
--- create policy "attempts staff read" on public.exam_attempts for select
+-- drop policy if exists "attempts staff read" on public.exam_attempts;
+create policy "attempts staff read" on public.exam_attempts for select
 --   using ( exists (select 1 from public.profiles p
 --                   where p.id = auth.uid() and p.role in ('teacher','admin')) );
--- create policy "attempts staff grade" on public.exam_attempts for update
+-- drop policy if exists "attempts staff grade" on public.exam_attempts;
+create policy "attempts staff grade" on public.exam_attempts for update
 --   using ( exists (select 1 from public.profiles p
 --                   where p.id = auth.uid() and p.role in ('teacher','admin')) );
 
@@ -242,6 +252,7 @@ alter table public.subscriptions enable row level security;
 
 -- 본인 구독만 조회 (INSERT/갱신은 결제검증 후 Edge Function(service_role) 권장)
 drop policy if exists "subs_select_own" on public.subscriptions;
+drop policy if exists "subs_select_own" on public.subscriptions;
 create policy "subs_select_own" on public.subscriptions
   for select using (auth.uid() = user_id);
 
@@ -266,8 +277,10 @@ $$;
 
 -- (a) 프로필: 강사·관리자는 전체 학생 조회, 관리자는 역할 변경(등업) 가능
 drop policy if exists "profiles_staff_read" on public.profiles;
+drop policy if exists "profiles_staff_read" on public.profiles;
 create policy "profiles_staff_read" on public.profiles
   for select using ( public.is_staff() );
+drop policy if exists "profiles_admin_update" on public.profiles;
 drop policy if exists "profiles_admin_update" on public.profiles;
 create policy "profiles_admin_update" on public.profiles
   for update using ( public.is_admin() );
@@ -275,18 +288,22 @@ create policy "profiles_admin_update" on public.profiles
 -- (b) 시험: 출제/수정은 강사·관리자만 (기존 '아무 로그인' 정책을 교체)
 drop policy if exists "exams write" on public.exams;
 drop policy if exists "exams_staff_write" on public.exams;
+drop policy if exists "exams_staff_write" on public.exams;
 create policy "exams_staff_write" on public.exams
   for all using ( public.is_staff() ) with check ( public.is_staff() );
 
 -- (c) 응시기록: 강사·관리자는 전체 조회 + 채점(수정) 가능
 drop policy if exists "attempts_staff_read" on public.exam_attempts;
+drop policy if exists "attempts_staff_read" on public.exam_attempts;
 create policy "attempts_staff_read" on public.exam_attempts
   for select using ( public.is_staff() );
+drop policy if exists "attempts_staff_grade" on public.exam_attempts;
 drop policy if exists "attempts_staff_grade" on public.exam_attempts;
 create policy "attempts_staff_grade" on public.exam_attempts
   for update using ( public.is_staff() );
 
 -- (d) 수강등록: 강사·관리자는 전체 조회 (관리/통계용)
+drop policy if exists "enrollments_staff_read" on public.enrollments;
 drop policy if exists "enrollments_staff_read" on public.enrollments;
 create policy "enrollments_staff_read" on public.enrollments
   for select using ( public.is_staff() );
@@ -296,8 +313,10 @@ create policy "enrollments_staff_read" on public.enrollments
 --  · 공개 버킷으로 두면 아래 정책 없이도 누구나 URL 로 열람 가능(가장 간단).
 --  · 비공개로 두려면 아래 정책으로 "로그인 사용자 읽기 / 강사 업로드" 를 허용하세요.
 drop policy if exists "exam_pdf_read" on storage.objects;
+drop policy if exists "exam_pdf_read" on storage.objects;
 create policy "exam_pdf_read" on storage.objects
   for select using ( bucket_id = 'exam-pdfs' and auth.role() = 'authenticated' );
+drop policy if exists "exam_pdf_write" on storage.objects;
 drop policy if exists "exam_pdf_write" on storage.objects;
 create policy "exam_pdf_write" on storage.objects
   for insert with check ( bucket_id = 'exam-pdfs' and public.is_staff() );
@@ -396,8 +415,10 @@ begin new.updated_at = now(); return new; end;
 $$;
 
 drop trigger if exists report_rounds_touch on public.report_rounds;
+drop trigger if exists report_rounds_touch on public.report_rounds;
 create trigger report_rounds_touch before update on public.report_rounds
   for each row execute function public.touch_updated_at();
+drop trigger if exists report_comments_touch on public.report_comments;
 drop trigger if exists report_comments_touch on public.report_comments;
 create trigger report_comments_touch before update on public.report_comments
   for each row execute function public.touch_updated_at();
@@ -409,16 +430,20 @@ alter table public.report_comments enable row level security;
 -- (a) 로그인한 모든 사용자: 읽기 가능 (학생도 자기 성적 보려면 필요)
 --     ※ 학생이 자기 행만 보도록 필터링은 클라이언트(ReportSelfView)에서 합니다.
 drop policy if exists "report_rounds_read_auth"   on public.report_rounds;
+drop policy if exists "report_rounds_read_auth" on public.report_rounds;
 create policy "report_rounds_read_auth" on public.report_rounds
   for select using ( auth.uid() is not null );
+drop policy if exists "report_comments_read_auth" on public.report_comments;
 drop policy if exists "report_comments_read_auth" on public.report_comments;
 create policy "report_comments_read_auth" on public.report_comments
   for select using ( auth.uid() is not null );
 
 -- (b) 강사·관리자(staff): 쓰기·수정·삭제 가능
 drop policy if exists "report_rounds_staff_write"   on public.report_rounds;
+drop policy if exists "report_rounds_staff_write" on public.report_rounds;
 create policy "report_rounds_staff_write" on public.report_rounds
   for all using ( public.is_staff() ) with check ( public.is_staff() );
+drop policy if exists "report_comments_staff_write" on public.report_comments;
 drop policy if exists "report_comments_staff_write" on public.report_comments;
 create policy "report_comments_staff_write" on public.report_comments
   for all using ( public.is_staff() ) with check ( public.is_staff() );
@@ -457,6 +482,7 @@ begin new.updated_at = now(); return new; end;
 $$;
 
 drop trigger if exists class_assignments_touch on public.class_assignments;
+drop trigger if exists class_assignments_touch on public.class_assignments;
 create trigger class_assignments_touch before update on public.class_assignments
   for each row execute function public.touch_updated_at();
 
@@ -465,10 +491,12 @@ alter table public.class_assignments enable row level security;
 
 -- (a) 로그인한 모든 사용자: 읽기 가능 (학생이 자기 과제를 보려면 필요)
 drop policy if exists "class_assignments_read_auth" on public.class_assignments;
+drop policy if exists "class_assignments_read_auth" on public.class_assignments;
 create policy "class_assignments_read_auth" on public.class_assignments
   for select using ( auth.uid() is not null );
 
 -- (b) 강사·관리자(staff): 쓰기·수정·삭제 가능
+drop policy if exists "class_assignments_staff_write" on public.class_assignments;
 drop policy if exists "class_assignments_staff_write" on public.class_assignments;
 create policy "class_assignments_staff_write" on public.class_assignments
   for all using ( public.is_staff() ) with check ( public.is_staff() );
@@ -504,6 +532,7 @@ create index if not exists orders_status_idx on public.orders(status);
 
 -- ── 2. 트리거: updated_at ────────────────────────────────────────
 drop trigger if exists orders_touch on public.orders;
+drop trigger if exists orders_touch on public.orders;
 create trigger orders_touch before update on public.orders
   for each row execute function public.touch_updated_at();
 
@@ -512,15 +541,18 @@ alter table public.orders enable row level security;
 
 -- 본인 주문 조회
 drop policy if exists "orders_own" on public.orders;
+drop policy if exists "orders_own" on public.orders;
 create policy "orders_own" on public.orders for select
   using ( auth.uid() = user_id );
 
 -- 결제창 열기 직전 본인 주문 INSERT (status='pending'만)
 drop policy if exists "orders_insert_own" on public.orders;
+drop policy if exists "orders_insert_own" on public.orders;
 create policy "orders_insert_own" on public.orders for insert
   with check ( auth.uid() = user_id and status = 'pending' );
 
 -- 스태프: 전체 조회/수정 (환불 등)
+drop policy if exists "orders_staff" on public.orders;
 drop policy if exists "orders_staff" on public.orders;
 create policy "orders_staff" on public.orders for all
   using ( public.is_staff() ) with check ( public.is_staff() );
@@ -556,12 +588,15 @@ create table if not exists public.admin_students (
 );
 create index if not exists admin_students_email_idx on public.admin_students (lower(email));
 drop trigger if exists admin_students_touch on public.admin_students;
+drop trigger if exists admin_students_touch on public.admin_students;
 create trigger admin_students_touch before update on public.admin_students
   for each row execute function public.touch_updated_at();
 alter table public.admin_students enable row level security;
 drop policy if exists "admin_students_staff_all" on public.admin_students;
+drop policy if exists "admin_students_staff_all" on public.admin_students;
 create policy "admin_students_staff_all" on public.admin_students
   for all using ( public.is_staff() ) with check ( public.is_staff() );
+drop policy if exists "admin_students_self_read" on public.admin_students;
 drop policy if exists "admin_students_self_read" on public.admin_students;
 create policy "admin_students_self_read" on public.admin_students
   for select using ( email is not null and lower(email) = lower(auth.jwt() ->> 'email') );
@@ -573,12 +608,15 @@ create table if not exists public.site_store (
   updated_at  timestamptz default now()
 );
 drop trigger if exists site_store_touch on public.site_store;
+drop trigger if exists site_store_touch on public.site_store;
 create trigger site_store_touch before update on public.site_store
   for each row execute function public.touch_updated_at();
 alter table public.site_store enable row level security;
 drop policy if exists "site_store_public_read" on public.site_store;
+drop policy if exists "site_store_public_read" on public.site_store;
 create policy "site_store_public_read" on public.site_store
   for select using ( true );
+drop policy if exists "site_store_staff_write" on public.site_store;
 drop policy if exists "site_store_staff_write" on public.site_store;
 create policy "site_store_staff_write" on public.site_store
   for all using ( public.is_staff() ) with check ( public.is_staff() );
@@ -591,12 +629,15 @@ create table if not exists public.exam_reminders (
   updated_at  timestamptz default now()
 );
 drop trigger if exists exam_reminders_touch on public.exam_reminders;
+drop trigger if exists exam_reminders_touch on public.exam_reminders;
 create trigger exam_reminders_touch before update on public.exam_reminders
   for each row execute function public.touch_updated_at();
 alter table public.exam_reminders enable row level security;
 drop policy if exists "exam_reminders_read_auth" on public.exam_reminders;
+drop policy if exists "exam_reminders_read_auth" on public.exam_reminders;
 create policy "exam_reminders_read_auth" on public.exam_reminders
   for select using ( auth.uid() is not null );
+drop policy if exists "exam_reminders_staff_write" on public.exam_reminders;
 drop policy if exists "exam_reminders_staff_write" on public.exam_reminders;
 create policy "exam_reminders_staff_write" on public.exam_reminders
   for all using ( public.is_staff() ) with check ( public.is_staff() );
@@ -611,12 +652,15 @@ create table if not exists public.ai_usage (
   primary key (user_id, day)
 );
 drop trigger if exists ai_usage_touch on public.ai_usage;
+drop trigger if exists ai_usage_touch on public.ai_usage;
 create trigger ai_usage_touch before update on public.ai_usage
   for each row execute function public.touch_updated_at();
 alter table public.ai_usage enable row level security;
 drop policy if exists "ai_usage_own_all" on public.ai_usage;
+drop policy if exists "ai_usage_own_all" on public.ai_usage;
 create policy "ai_usage_own_all" on public.ai_usage
   for all using ( auth.uid() = user_id ) with check ( auth.uid() = user_id );
+drop policy if exists "ai_usage_staff_read" on public.ai_usage;
 drop policy if exists "ai_usage_staff_read" on public.ai_usage;
 create policy "ai_usage_staff_read" on public.ai_usage
   for select using ( public.is_staff() );
@@ -801,4 +845,3 @@ alter table public.classin_rewards       enable row level security;
 alter table public.classin_interactions  enable row level security;
 alter table public.classin_recordings    enable row level security;
 alter table public.classin_class_summary enable row level security;
-

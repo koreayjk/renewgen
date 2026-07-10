@@ -196,7 +196,7 @@ alter table public.exam_attempts  enable row level security;
 drop policy if exists "exams read"  on public.exams;
 drop policy if exists "exams write" on public.exams;
 drop policy if exists "exams read" on public.exams;
-create policy "exams read"  on public.exams for select using ( auth.role() = 'authenticated' );
+create policy "exams read" on public.exams for select using ( auth.role() = 'authenticated' );
 drop policy if exists "exams write" on public.exams;
 create policy "exams write" on public.exams for all
   using ( auth.uid() is not null ) with check ( auth.uid() is not null );
@@ -212,12 +212,10 @@ create policy "attempts owner" on public.exam_attempts for all
 -- (선택) 강사/관리자가 모든 응시본을 읽고 채점하도록 하려면,
 -- profiles(id uuid, role text) 테이블이 있다고 가정하고 아래 정책을 추가:
 --
--- drop policy if exists "attempts staff read" on public.exam_attempts;
-create policy "attempts staff read" on public.exam_attempts for select
+-- create policy "attempts staff read" on public.exam_attempts for select
 --   using ( exists (select 1 from public.profiles p
 --                   where p.id = auth.uid() and p.role in ('teacher','admin')) );
--- drop policy if exists "attempts staff grade" on public.exam_attempts;
-create policy "attempts staff grade" on public.exam_attempts for update
+-- create policy "attempts staff grade" on public.exam_attempts for update
 --   using ( exists (select 1 from public.profiles p
 --                   where p.id = auth.uid() and p.role in ('teacher','admin')) );
 

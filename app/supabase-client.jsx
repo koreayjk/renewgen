@@ -6,9 +6,9 @@
 //  anon key 는 공개되어도 안전한 키입니다(브라우저 전용). RLS 로 보호.
 // ──────────────────────────────────────────────────────────────────
 
-const SUPABASE_URL = "https://psusaorzcvwvdthgbgjb.supabase.co";
+const SUPABASE_URL = "https://vpylrktkscyogwzqtswv.supabase.co";
 const SUPABASE_ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBzdXNhb3J6Y3Z3dmR0aGdiZ2piIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1NTc5MzIsImV4cCI6MjA5NzEzMzkzMn0.mOGWEg9xJJ5O2Y9PuSdsRjz09K7WZl0WNUM_dywHk64";
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZweWxya3Rrc2N5b2d3enF0c3d2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1OTI0MDksImV4cCI6MjA5OTE2ODQwOX0.SZ35TE2CLD97oIwGbxMcNhGBSEHqUM0NeBLNiRidZJc";
 
 let _sb = null;
 function getSupabase() {

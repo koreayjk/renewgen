@@ -24,7 +24,7 @@
 window.TOSS_CLIENT_KEY = window.TOSS_CLIENT_KEY || "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm";
 // 서버 승인 엔드포인트 — Supabase Edge Function (toss-confirm)
 window.TOSS_CONFIRM_API = window.TOSS_CONFIRM_API ||
-  ((window.SUPABASE_URL || "https://psusaorzcvwvdthgbgjb.supabase.co") + "/functions/v1/toss-confirm");
+  ((window.SUPABASE_URL || "https://vpylrktkscyogwzqtswv.supabase.co") + "/functions/v1/toss-confirm");
 
 // ── SDK 동적 로드 ───────────────────────────────────────────────────
 let _tossSdkPromise = null;

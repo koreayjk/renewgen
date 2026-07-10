@@ -183,8 +183,10 @@ window.updateMyProfile = async function (id, patch) {
 window.signInWithGoogle = async function () {
   const sb = getSupabase();
   if (!sb) return { ok: false, error: "Supabase 미연결" };
-  // 해시(#/login) 떼고 현재 페이지로 복귀 → 복귀 후 #/mypage 로 이동
-  const redirectTo = window.location.origin + window.location.pathname + "#/mypage";
+  // 복귀 주소에 해시(#/route)를 넣지 않는다 — Supabase 가 #access_token 을 뒤에 붙여
+  // 이중 해시(#/mypage#access_token)가 되면 세션 파싱이 실패한다. 깨끗한 URL 로 복귀하면
+  // detectSessionInUrl 이 토큰을 정상 처리하고, 이후 역할에 따라 자동 라우팅된다.
+  const redirectTo = window.location.origin + window.location.pathname;
   const { error } = await sb.auth.signInWithOAuth({
     provider: "google",
     options: { redirectTo },

@@ -140,10 +140,11 @@ serve(async (req) => {
   if (!SID || !SECRET) return json({ ok: false, msg: "서버에 CLASSIN_SID/SECRET 미설정" }, 500);
 
   // 후보 액션 (문서 확정 전 자동 탐색)
+  // 확정된 실존 엔드포인트(권한 부여 후 바로 동작): getStudentList / getCourseList
   const candidates = override ? [override]
     : type === "courses"
-      ? ["getCourseList", "getSchoolCourseList", "getCourse", "getCourseInfo", "courseList"]
-      : ["getSchoolStudentList", "getSchoolStudent", "getStudentList", "getSchoolStudentInfo", "studentList"];
+      ? ["getCourseList", "getCourseInfo", "getSchoolCourseList", "getCourse", "courseList"]
+      : ["getStudentList", "getSchoolStudentList", "getSchoolStudent", "getSchoolStudentInfo", "studentList"];
 
   const params: Record<string, any> = { page, num };
 

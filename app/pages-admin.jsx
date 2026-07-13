@@ -564,22 +564,56 @@ function StudentManager({ isAdmin, onOpenReports }) {
   const [statusF, setStatusF] = useStA("all");
   const [selId, setSelId] = useStA(null);
   const [adding, setAdding] = useStA(false);
+  const [sortBy, setSortBy] = useStA("name");
+  const [linkF, setLinkF] = useStA("all");     // 클래스인 연동 필터
+  const [page, setPage] = useStA(1);
+  const PAGE_SIZE = 50;
+  // 필터/검색/정렬 변경 시 첫 페이지로
+  React.useEffect(() => { setPage(1); }, [q, roleF, statusF, linkF, sortBy, tick]);
 
+  const isLinked = (a) => !!(a.classinUid || a.classin_uid);
   const c = {
     student: all.filter((a) => a.role === "student").length,
     teacher: all.filter((a) => a.role === "teacher").length,
     active: all.filter((a) => a.status === "active").length,
     pending: all.filter((a) => a.status === "pending").length,
     stopped: all.filter((a) => a.status === "stopped").length,
+    linked: all.filter(isLinked).length,
   };
-  const rows = all
+  const filtered = all
     .filter((a) => roleF === "all" || a.role === roleF)
     .filter((a) => statusF === "all" || a.status === statusF)
+    .filter((a) => linkF === "all" || (linkF === "linked" ? isLinked(a) : !isLinked(a)))
     .filter((a) => {
       if (!q) return true; const s = q.toLowerCase();
       return a.name.includes(q) || (a.label || "").includes(q) || (a.email || "").toLowerCase().includes(s) || (a.mobile || "").includes(q) || String(a.uid).includes(q);
     });
+  const STATUS_ORDER = { pending: 0, active: 1, stopped: 2 };
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortBy === "status") return (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9) || a.name.localeCompare(b.name, "ko");
+    if (sortBy === "name-desc") return b.name.localeCompare(a.name, "ko");
+    return a.name.localeCompare(b.name, "ko");   // 기본: 가나다순
+  });
+  const total = sorted.length;
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const curPage = Math.min(page, pageCount);
+  const rows = sorted.slice((curPage - 1) * PAGE_SIZE, curPage * PAGE_SIZE);
   const sel = all.find((a) => a.uid === selId) || null;
+
+  // 현재 필터 결과를 CSV 로 내보내기
+  const exportCsv = () => {
+    const head = ["이름", "역할", "학년·반", "이메일", "휴대폰", "ClassIn UID", "상태", "출처"];
+    const esc = (v) => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
+    const lines = [head.join(",")].concat(sorted.map((a) => [
+      a.name, a.role === "teacher" ? "강사" : "학생", a.label || "", a.email || "", a.mobile || "",
+      a.classinUid || a.classin_uid || a.uid, a.status || "", a.source || "",
+    ].map(esc).join(",")));
+    const blob = new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const el = document.createElement("a");
+    el.href = url; el.download = "리뉴젠_학생명부_" + total + "명.csv";
+    document.body.appendChild(el); el.click(); el.remove(); URL.revokeObjectURL(url);
+  };
 
   const setStatus = (uid, status, label) => { stuPatch(uid, { status }); refresh(); showToast(label); };
 
@@ -594,7 +628,7 @@ function StudentManager({ isAdmin, onOpenReports }) {
         <div className="ci-kpi accent"><div className="lab"><span className="ico"><Icon name="users" size={16} /></span> 학생</div><div className="num">{c.student}</div><div className="sub">강사 {c.teacher}명</div></div>
         <div className="ci-kpi"><div className="lab"><span className="ico"><Icon name="check" size={16} /></span> 활성</div><div className="num">{c.active}</div><div className="sub">수강 중</div></div>
         <div className="ci-kpi"><div className="lab"><span className="ico"><Icon name="clock" size={16} /></span> 승인대기</div><div className="num">{c.pending}</div><div className="sub">신규 가입</div></div>
-        <div className="ci-kpi"><div className="lab"><span className="ico"><Icon name="lock" size={16} /></span> 정지</div><div className="num">{c.stopped}</div><div className="sub">이용 중지</div></div>
+        <div className="ci-kpi"><div className="lab"><span className="ico"><Icon name="signal" size={16} /></span> 클래스인 연동</div><div className="num">{c.linked}</div><div className="sub">정지 {c.stopped}명</div></div>
       </div>
 
       {/* 툴바 */}
@@ -613,6 +647,20 @@ function StudentManager({ isAdmin, onOpenReports }) {
           <option value="pending">승인대기</option>
           <option value="stopped">정지</option>
         </select>
+        <select className="ci-select" value={linkF} onChange={(e) => setLinkF(e.target.value)}>
+          <option value="all">연동 전체</option>
+          <option value="linked">클래스인 연동됨</option>
+          <option value="unlinked">미연동</option>
+        </select>
+        <select className="ci-select" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+          <option value="name">이름 가나다순</option>
+          <option value="name-desc">이름 역순</option>
+          <option value="status">상태순(승인대기 먼저)</option>
+        </select>
+        <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 13, color: "var(--ci-muted)" }}>결과 <b style={{ color: "var(--ci-ink)" }}>{total.toLocaleString()}</b>명</span>
+          <button className="ci-act sm" onClick={exportCsv} title="현재 결과를 CSV로 내려받기"><Icon name="download" size={12} /> CSV</button>
+        </span>
       </div>
 
       <div className="ci-card" style={{ overflow: "hidden" }}>
@@ -649,6 +697,20 @@ function StudentManager({ isAdmin, onOpenReports }) {
             </tbody>
           </table>
         </div>
+        {pageCount > 1 && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 18px", borderTop: "1px solid var(--ci-line)", fontSize: 13 }}>
+            <span style={{ color: "var(--ci-muted)" }}>
+              {((curPage - 1) * PAGE_SIZE + 1).toLocaleString()}–{Math.min(curPage * PAGE_SIZE, total).toLocaleString()} / 총 {total.toLocaleString()}명
+            </span>
+            <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <button className="ci-act sm" disabled={curPage <= 1} onClick={() => setPage(1)}>« 처음</button>
+              <button className="ci-act sm" disabled={curPage <= 1} onClick={() => setPage(curPage - 1)}>‹ 이전</button>
+              <span style={{ padding: "0 8px", fontWeight: 700 }}>{curPage} / {pageCount}</span>
+              <button className="ci-act sm" disabled={curPage >= pageCount} onClick={() => setPage(curPage + 1)}>다음 ›</button>
+              <button className="ci-act sm" disabled={curPage >= pageCount} onClick={() => setPage(pageCount)}>끝 »</button>
+            </span>
+          </div>
+        )}
       </div>
 
       {sel && <StudentDrawer student={sel} onClose={() => setSelId(null)} onChange={refresh} onOpenReports={onOpenReports} showToast={showToast} />}

@@ -20,6 +20,35 @@ function AdminPage() {
   const isAdmin = !!(window.isAdmin && window.isAdmin(user));
   const [tab, setTab] = useStA("status");
   const [roleFilter, setRoleFilter] = useStA("all");
+  const [stats, setStats] = useStA(null);   // 실데이터 현황(대시보드)
+
+  // 실제 데이터로 현황 지표 로드 (가짜 숫자 대체)
+  React.useEffect(() => {
+    let alive = true;
+    (async () => {
+      const s = { students: 0, teachers: 0, courses: 0, rounds: 0, events: null, linked: 0 };
+      try {
+        const r = window.rjPullStudentsFromCloud && await window.rjPullStudentsFromCloud();
+        if (r && r.ok && r.students) {
+          const arr = Object.values(r.students);
+          s.students = arr.filter((x) => (x.role || "student") !== "teacher").length;
+          s.teachers = arr.filter((x) => x.role === "teacher").length;
+          s.linked = arr.filter((x) => x.classin_uid || x.classinUid).length;
+        }
+      } catch (e) {}
+      try { s.courses = (window.COURSES || []).length; } catch (e) {}
+      try { s.rounds = ((window.RJReport && window.RJReport.loadStore().rounds) || []).length; } catch (e) {}
+      try {
+        const sb = window.getSupabase && window.getSupabase();
+        if (sb) {
+          const { count } = await sb.from("classin_events").select("*", { count: "exact", head: true });
+          s.events = count == null ? 0 : count;
+        }
+      } catch (e) {}
+      if (alive) setStats(s);
+    })();
+    return () => { alive = false; };
+  }, []);
 
   // 역할 가드 — 실제 로그인(Supabase) 환경에서 학생이 콘솔에 직접 접근하면 학습 대시보드로 돌려보냄
   React.useEffect(() => {
@@ -88,10 +117,10 @@ function AdminPage() {
         {tab === "status" && (
           <div style={{ display: "grid", gap: 24 }}>
             <div className="ci-stat-strip">
-              <div className="ci-kpi accent"><div className="lab"><span className="ico"><Icon name="users" size={16} /></span> 전체 계정</div><div className="num">{ADMIN_ACCOUNTS.length}</div><div className="sub">강사 {teachers.length} · 학생 {students.length}</div></div>
-              <div className="ci-kpi"><div className="lab"><span className="ico"><Icon name="book" size={16} /></span> 활성 수업</div><div className="num">{ADMIN_CLASSES.length}</div><div className="sub">오늘 라이브 {ADMIN_CLASSES.filter(c => c.state === "live").length}건</div></div>
-              <div className="ci-kpi"><div className="lab"><span className="ico"><Icon name="server" size={16} /></span> 수신 메시지</div><div className="num">8.4<small>k</small></div><div className="sub">최근 24시간</div></div>
-              <div className="ci-kpi"><div className="lab"><span className="ico"><Icon name="signal" size={16} /></span> 엔드포인트</div><div className="num" style={{ fontSize: 24 }}>정상</div><div className="sub">200 OK · 12ms</div></div>
+              <div className="ci-kpi accent"><div className="lab"><span className="ico"><Icon name="users" size={16} /></span> 전체 학생</div><div className="num">{stats ? stats.students.toLocaleString() : "–"}</div><div className="sub">강사 {stats ? stats.teachers : "–"} · 클래스인 연동 {stats ? stats.linked : "–"}</div></div>
+              <div className="ci-kpi"><div className="lab"><span className="ico"><Icon name="book" size={16} /></span> 개설 강의</div><div className="num">{stats ? stats.courses : "–"}</div><div className="sub">녹화강의 · VOD</div></div>
+              <div className="ci-kpi"><div className="lab"><span className="ico"><Icon name="server" size={16} /></span> 성적 회차</div><div className="num">{stats ? stats.rounds : "–"}</div><div className="sub">월말평가 누적</div></div>
+              <div className="ci-kpi"><div className="lab"><span className="ico"><Icon name="signal" size={16} /></span> 클래스인 수신</div><div className="num" style={{ fontSize: stats && stats.events > 0 ? undefined : 24 }}>{stats == null ? "–" : (stats.events > 0 ? stats.events.toLocaleString() : "대기")}</div><div className="sub">{stats && stats.events > 0 ? "이벤트 누적 수신" : "훅 등록 후 수신 시작"}</div></div>
             </div>
 
             <div className="ci-admin-grid">
@@ -198,46 +227,90 @@ function AdminPage() {
           </div>
         )}
 
-        {/* ── Data subscription monitor ── */}
-        {tab === "subs" && (
-          <div>
-            <CiHead title="데이터 구독 모니터" api="Data Subscription"
-              sub="수신 중인 메시지 유형별 집계 · 실시간 push 현황"
-              action={<span className="ci-badge ok"><Icon name="signal" size={12} /> 수신 정상</span>} />
-            <div className="ci-admin-grid">
-              <div className="ci-card">
-                <div style={{ padding: "16px 18px", borderBottom: "1px solid var(--ci-line)", fontWeight: 800, fontSize: 14 }}>메시지 유형별 수신</div>
-                {SUB_MESSAGES.map((m) => (
-                  <div key={m.name} className="ci-sub-row">
-                    <span className="ci-sub-name">{m.name}</span>
-                    <span className="ci-sub-n">{m.n.toLocaleString()}</span>
-                    <span style={{ fontSize: 12, color: "var(--ci-muted)", minWidth: 72, textAlign: "right" }}>{m.last}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="ci-card ci-card-pad">
-                <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 12 }}>수신 로그</div>
-                <div style={{ background: "#0B1117", borderRadius: 10, padding: 14, fontFamily: "var(--font-en)", fontSize: 11.5, lineHeight: 1.9, color: "#A6E3B8", maxHeight: 320, overflowY: "auto" }}>
-                  <div><span style={{ color: "#5C6678" }}>20:42:02</span> <span style={{ color: "#FFD60A" }}>Rewards</span> {"{"} TUID: 10277431, times: 5 {"}"}</div>
-                  <div><span style={{ color: "#5C6678" }}>20:41:48</span> <span style={{ color: "#FFD60A" }}>HandsUp</span> {"{"} handsUp: 6 {"}"}</div>
-                  <div><span style={{ color: "#5C6678" }}>20:41:30</span> <span style={{ color: "#FFD60A" }}>Selector</span> {"{"} correct: 1, committed: 178 {"}"}</div>
-                  <div><span style={{ color: "#5C6678" }}>20:40:55</span> <span style={{ color: "#FF8B8B" }}>HelpSeeking</span> {"{"} UID: 10266902 {"}"}</div>
-                  <div><span style={{ color: "#5C6678" }}>20:40:12</span> <span style={{ color: "#9FD0FF" }}>EnterClassroom</span> {"{"} UID: 10233655, device: iPhone {"}"}</div>
-                  <div><span style={{ color: "#5C6678" }}>20:39:40</span> <span style={{ color: "#9FD0FF" }}>UpDownStage</span> {"{"} UID: 10277431, op: up {"}"}</div>
-                  <div><span style={{ color: "#5C6678" }}>20:39:02</span> <span style={{ color: "#FFD60A" }}>Rewards</span> {"{"} TUID: 10255810, times: 1 {"}"}</div>
-                  <div><span style={{ color: "#5C6678" }}>20:38:30</span> <span style={{ color: "#C9C9C9" }}>Mute</span> {"{"} op: muteAll {"}"}</div>
-                  <div><span style={{ color: "#5C6678" }}>20:38:01</span> <span style={{ color: "#9FD0FF" }}>NetworkCondition</span> {"{"} UID: 10266902, net: 41% {"}"}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* ── Data subscription monitor (실데이터) ── */}
+        {tab === "subs" && <DataSubMonitor />}
       </section>
     </div>
   );
 }
 
 window.AdminPage = AdminPage;
+
+// ── 데이터 구독 모니터 (실제 classin_events 수신) ──────────────────
+function DataSubMonitor() {
+  const [st, setSt] = useStA(null);
+  React.useEffect(() => {
+    let alive = true;
+    (async () => {
+      const sb = window.getSupabase && window.getSupabase();
+      if (!sb) { if (alive) setSt({ types: [], log: [], total: 0, noDb: true }); return; }
+      try {
+        const { data } = await sb.from("classin_events")
+          .select("cmd, student_uid, student_name, occurred_at, received_at")
+          .order("received_at", { ascending: false }).limit(500);
+        const rows = data || [];
+        const byType = {};
+        for (const r of rows) {
+          const k = r.cmd || "unknown";
+          if (!byType[k]) byType[k] = { name: k, n: 0, last: null };
+          byType[k].n++;
+          const t = r.received_at || r.occurred_at;
+          if (t && (!byType[k].last || t > byType[k].last)) byType[k].last = t;
+        }
+        const types = Object.values(byType).sort((a, b) => b.n - a.n);
+        const log = rows.slice(0, 40).map((r) => ({
+          t: String(r.received_at || r.occurred_at || "").slice(11, 19),
+          cmd: r.cmd || "unknown",
+          who: r.student_name || r.student_uid || "",
+        }));
+        if (alive) setSt({ types, log, total: rows.length });
+      } catch (e) { if (alive) setSt({ types: [], log: [], total: 0, error: String(e && e.message || e) }); }
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  const okBadge = st && st.total > 0
+    ? <span className="ci-badge ok"><Icon name="signal" size={12} /> 수신 정상</span>
+    : <span className="ci-badge neutral"><Icon name="clock" size={12} /> 수신 대기</span>;
+
+  return (
+    <div>
+      <CiHead title="데이터 구독 모니터" api="Data Subscription"
+        sub="클래스인에서 수신한 실제 데이터(classin_events) · 최근 500건 기준" action={okBadge} />
+      {st == null ? (
+        <div className="ci-card ci-card-pad" style={{ textAlign: "center", color: "var(--ci-muted)" }}><Icon name="refresh" size={18} /> 불러오는 중…</div>
+      ) : st.total === 0 ? (
+        <div className="ci-card ci-card-pad" style={{ textAlign: "center", padding: "48px 24px", color: "var(--ci-muted)" }}>
+          <Icon name="server" size={26} />
+          <div style={{ fontWeight: 800, color: "var(--ci-ink)", marginTop: 12 }}>아직 수신된 데이터가 없습니다</div>
+          <p style={{ fontSize: 13, marginTop: 8, lineHeight: 1.6 }}>클래스인에 훅 주소가 등록되고 수업·채점이 일어나면<br />여기에 실시간으로 수신 내역이 쌓입니다.</p>
+          {st.error && <div style={{ fontSize: 11.5, color: "#C0392B", marginTop: 10, fontFamily: "var(--font-en)" }}>{st.error}</div>}
+        </div>
+      ) : (
+        <div className="ci-admin-grid">
+          <div className="ci-card">
+            <div style={{ padding: "16px 18px", borderBottom: "1px solid var(--ci-line)", fontWeight: 800, fontSize: 14 }}>메시지 유형별 수신</div>
+            {st.types.map((m) => (
+              <div key={m.name} className="ci-sub-row">
+                <span className="ci-sub-name">{m.name}</span>
+                <span className="ci-sub-n">{m.n.toLocaleString()}</span>
+                <span style={{ fontSize: 12, color: "var(--ci-muted)", minWidth: 84, textAlign: "right" }}>{String(m.last || "").slice(5, 16).replace("T", " ")}</span>
+              </div>
+            ))}
+          </div>
+          <div className="ci-card ci-card-pad">
+            <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 12 }}>수신 로그 <span style={{ fontWeight: 500, color: "var(--ci-muted)", fontSize: 12 }}>· 최근 {st.log.length}건</span></div>
+            <div style={{ background: "#0B1117", borderRadius: 10, padding: 14, fontFamily: "var(--font-en)", fontSize: 11.5, lineHeight: 1.9, color: "#A6E3B8", maxHeight: 360, overflowY: "auto" }}>
+              {st.log.map((l, i) => (
+                <div key={i}><span style={{ color: "#5C6678" }}>{l.t}</span> <span style={{ color: "#FFD60A" }}>{l.cmd}</span> {l.who && <span style={{ color: "#9FD0FF" }}>{l.who}</span>}</div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ── 권한 없는 사용자가 /admin 에 접근했을 때 ───────────────────────
 function AdminDenied({ user }) {

@@ -17,7 +17,7 @@ const CLASSIN = {
   docs: "https://docs.eeo.cn/api/en/",
   status: "connected",        // connected | pending | error
   testApproved: true,         // 본사 승인 완료
-  dataEndpoint: "https://api.renewjen.kr/classin/hook",
+  dataEndpoint: "https://vpylrktkscyogwzqtswv.supabase.co/functions/v1/classin-hook",
   lastSync: "방금 전",
 };
 

@@ -538,8 +538,42 @@ function StuStatusBadge({ s }) {
 function StudentManager({ isAdmin, onOpenReports }) {
   const { showToast } = useApp();
   const [tick, setTick] = useStA(0);
+  const [profiles, setProfiles] = useStA([]);   // 홈페이지 가입 계정(Supabase profiles)
   const refresh = () => setTick((t) => t + 1);
-  const all = React.useMemo(() => stuList(), [tick]);
+
+  // 가입 회원(profiles) 로드 → 명부(admin_students)와 합치기 위함
+  React.useEffect(() => {
+    let alive = true;
+    if (!window.fetchAllProfiles) return;
+    window.fetchAllProfiles().then((r) => { if (alive && r && r.ok) setProfiles(r.rows || []); }).catch(() => {});
+    return () => { alive = false; };
+  }, [tick]);
+
+  // 엑셀 명부(admin_students) + 홈페이지 가입 계정(profiles) 을 이메일 기준으로 병합
+  const all = React.useMemo(() => {
+    const base = stuList();
+    const byEmail = {};
+    base.forEach((s) => { if (s.email) byEmail[String(s.email).toLowerCase()] = s; });
+    const out = base.slice();
+    (profiles || []).forEach((p) => {
+      const em = String(p.email || "").toLowerCase();
+      const role = p.role === "teacher" || p.role === "admin" ? "teacher" : "student";
+      if (em && byEmail[em]) {                     // 이미 명부에 있는 이메일 → 가입 계정 표시만 병합
+        const s = byEmail[em];
+        s.signup = true;
+        if (!s.name || /[\d@*]/.test(s.name)) s.name = p.name || s.name;
+        if (p.role) s.role = role;
+        if (p.classin_uid && !s.classinUid) s.classinUid = p.classin_uid;
+      } else {                                     // 명부에 없는 가입자 → 새 항목 추가
+        out.push({
+          uid: p.id, name: p.name || (em ? em.split("@")[0] : "학생"), email: p.email || null,
+          mobile: p.phone || null, role, status: "active", source: "signup", signup: true,
+          label: p.grade || "", classinUid: p.classin_uid || null,
+        });
+      }
+    });
+    return out;
+  }, [tick, profiles]);
 
   // 클라우드(Supabase)에서 학생 명부 동기화 → 로컬 캐시 교체 후 재렌더.
   //   클라우드가 비어 있고 로컬에 기존 편집분이 있으면 → 최초 1회 자동 업로드(이관).
@@ -674,7 +708,7 @@ function StudentManager({ isAdmin, onOpenReports }) {
                 const avg = trend && trend.length ? trend[trend.length - 1].avg : null;
                 return (
                   <tr key={a.uid} className={"ci-row-clickable" + (selId === a.uid ? " active" : "")} onClick={() => setSelId(a.uid)}>
-                    <td><span className="ci-nameav"><span className="av" style={a.role === "teacher" ? { background: "var(--ci-navy-2)" } : {}}>{a.name.slice(-2)}</span>{a.name}</span></td>
+                    <td><span className="ci-nameav"><span className="av" style={a.role === "teacher" ? { background: "var(--ci-navy-2)" } : {}}>{a.name.slice(-2)}</span>{a.name}{a.signup && <span className="ci-badge navy" style={{ fontSize: 9, marginLeft: 6 }}>가입</span>}{a.source === "classin" && !a.signup && <span className="ci-badge neutral" style={{ fontSize: 9, marginLeft: 6 }}>명부</span>}</span></td>
                     <td><span className={"ci-badge " + (a.role === "teacher" ? "navy" : "neutral")}>{a.role === "teacher" ? "강사" : "학생"}</span></td>
                     <td>{a.label || "—"}</td>
                     <td className="ci-mono" style={{ color: "var(--ci-muted)" }}>{a.email || a.mobile || "—"}</td>

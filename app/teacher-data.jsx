@@ -77,12 +77,41 @@ function riskMeta(r) {
 
 function rosterStats(roster) {
   const n = roster.length;
-  if (!n) return { n: 0, avgAtt: 0, avgExam: 0, highRisk: 0, watch: 0 };
-  const avgAtt = Math.round(roster.reduce((s, r) => s + r.attRate, 0) / n);
-  const avgExam = Math.round(roster.reduce((s, r) => s + r.examAvg, 0) / n);
+  if (!n) return { n: 0, avgAtt: null, avgExam: null, highRisk: 0, watch: 0 };
+  const attVals = roster.map((r) => r.attRate).filter((v) => v != null);
+  const examVals = roster.map((r) => r.examAvg).filter((v) => v != null);
+  const avgAtt = attVals.length ? Math.round(attVals.reduce((s, v) => s + v, 0) / attVals.length) : null;
+  const avgExam = examVals.length ? Math.round(examVals.reduce((s, v) => s + v, 0) / examVals.length) : null;
   const highRisk = roster.filter((r) => r.risk === "high").length;
   const watch = roster.filter((r) => r.risk === "watch").length;
   return { n, avgAtt, avgExam, highRisk, watch };
+}
+
+// ── 실제 로스터 — 월말평가 성적표 학생으로 구성 (출결·참여는 라이브 수업 전이라 null) ──
+function rjRealTeacherRoster() {
+  try {
+    const R = window.RJReport; if (!R) return [];
+    const rounds = R.sortedRounds(R.loadStore());
+    if (!rounds.length) return [];
+    const byName = {};
+    rounds.forEach((rd) => {
+      for (const key in rd.students) {
+        const st = rd.students[key];
+        if (!st || st.avg == null) continue;
+        const nm = st.name;
+        if (!byName[nm]) byName[nm] = { id: "r-" + nm, name: nm, initials: String(nm).slice(-2), org: st.org || "", trend: [], examAvg: null };
+        byName[nm].trend.push({ label: R.shortLabel(rd.label), avg: st.avg });
+        byName[nm].examAvg = st.avg;   // rounds 오름차순 → 마지막이 최신
+      }
+    });
+    return Object.values(byName).map((s) => {
+      const ea = s.examAvg;
+      let risk = "good"; const flags = [];
+      if (ea != null && ea < 60) { risk = "high"; flags.push("성적 주의"); }
+      else if (ea != null && ea < 70) { risk = "watch"; flags.push("성적 관찰"); }
+      return { ...s, present: null, late: null, absent: null, attRate: null, partic: null, hwRate: null, examAvg: ea, risk, flags };
+    }).sort((a, b) => a.name.localeCompare(b.name, "ko"));
+  } catch (e) { return []; }
 }
 
 // ── 반(class) 멤버 조회 ────────────────────────────
@@ -142,7 +171,7 @@ TEACHER_CLASSES.length = 0; TEACHER_ROSTER.length = 0; ATT_SESSIONS.length = 0;
 
 Object.assign(window, {
   TEACHER_CLASSES, TEACHER_ROSTER, ATT_SESSIONS, TEACHER_TODAY,
-  riskMeta, rosterStats, buildRoster,
+  riskMeta, rosterStats, buildRoster, rjRealTeacherRoster,
   findClass, classRoster,
   loadAssignments, listAssignments, createAssignment, updateSubmission, deleteAssignment, asgStats,
 });

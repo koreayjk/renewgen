@@ -20,8 +20,10 @@ function TeacherPage() {
   const { user, navigate, logout } = useApp();
   const [tab, setTab] = useStT("today");
   const [, forceT] = useStT(0);
-  const roster = window.TEACHER_ROSTER || [];
-  const stats = window.rosterStats ? window.rosterStats(roster) : { n: 0, avgAtt: 0, avgExam: 0, highRisk: 0, watch: 0 };
+  // 실제 로스터(월말평가 성적표 학생) 우선, 없으면 데모
+  const realRoster = (window.rjRealTeacherRoster && window.rjRealTeacherRoster()) || [];
+  const roster = realRoster.length ? realRoster : (window.TEACHER_ROSTER || []);
+  const stats = window.rosterStats ? window.rosterStats(roster) : { n: 0, avgAtt: null, avgExam: null, highRisk: 0, watch: 0 };
 
   // 과제·제출/채점을 클라우드(Supabase)에서 동기화 → 로컬 캐시 교체 후 재렌더
   //   (미연결 시 no-op → 기존 로컬 동작 유지)
@@ -132,9 +134,9 @@ function TeacherToday({ roster, stats, onTab }) {
 
       {/* KPI */}
       <div className="ci-kpis" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
-        <div className="ci-kpi accent"><div className="lab"><span className="ico"><Icon name="users" size={16} /></span> 담당 학생</div><div className="num">{stats.n}<small>명</small></div><div className="sub">{(window.TEACHER_CLASSES || []).length}개 반</div></div>
-        <div className="ci-kpi"><div className="lab"><span className="ico"><Icon name="check" size={16} /></span> 평균 출석률</div><div className="num">{stats.avgAtt}<small>%</small></div><div className="sub">최근 12회</div></div>
-        <div className="ci-kpi"><div className="lab"><span className="ico"><Icon name="trophy" size={16} /></span> 반 평균 성적</div><div className="num">{stats.avgExam}<small>점</small></div><div className="sub">정기고사 기준</div></div>
+        <div className="ci-kpi accent"><div className="lab"><span className="ico"><Icon name="users" size={16} /></span> 담당 학생</div><div className="num">{stats.n}<small>명</small></div><div className="sub">월말평가 성적 기준</div></div>
+        <div className="ci-kpi"><div className="lab"><span className="ico"><Icon name="check" size={16} /></span> 평균 출석률</div><div className="num" style={{ fontSize: stats.avgAtt == null ? 22 : undefined }}>{stats.avgAtt == null ? "—" : <>{stats.avgAtt}<small>%</small></>}</div><div className="sub">{stats.avgAtt == null ? "라이브 수업 시작 후" : "최근 12회"}</div></div>
+        <div className="ci-kpi"><div className="lab"><span className="ico"><Icon name="trophy" size={16} /></span> 반 평균 성적</div><div className="num" style={{ fontSize: stats.avgExam == null ? 22 : undefined }}>{stats.avgExam == null ? "—" : <>{stats.avgExam}<small>점</small></>}</div><div className="sub">월말평가 평균</div></div>
         <div className="ci-kpi"><div className="lab"><span className="ico"><Icon name="signal" size={16} /></span> 집중관리</div><div className="num" style={{ color: stats.highRisk ? "var(--ci-bad)" : "inherit" }}>{stats.highRisk}<small>명</small></div><div className="sub">관찰 {stats.watch}명</div></div>
       </div>
 
@@ -189,7 +191,22 @@ function TodoRow({ icon, label, n, unit, onClick }) {
 function TeacherAttendance({ roster }) {
   const sessions = window.ATT_SESSIONS || [];
   const { showToast } = useApp();
-  const lowAtt = roster.filter((r) => r.attRate < 80);
+  const lowAtt = roster.filter((r) => r.attRate != null && r.attRate < 80);
+
+  // 실제 출결 데이터가 없으면(라이브 수업 전) 정직한 빈 상태
+  if (sessions.length === 0 && !roster.some((r) => r.attRate != null)) {
+    return (
+      <div style={{ display: "grid", gap: 18 }}>
+        <CiHead title="출결 관리" api="ClassIn · Attendance"
+          sub="라이브 수업의 입퇴실(Enter/Exit) 데이터가 자동으로 수신됩니다" />
+        <div className="ci-card ci-card-pad" style={{ textAlign: "center", padding: "56px 24px", color: "var(--ci-muted)" }}>
+          <Icon name="calendar" size={28} />
+          <div style={{ fontWeight: 800, color: "var(--ci-ink)", marginTop: 12, fontSize: 15 }}>아직 출결 데이터가 없습니다</div>
+          <p style={{ fontSize: 13.5, marginTop: 8, lineHeight: 1.6 }}>실시간(라이브) 수업을 시작하면 ClassIn 입퇴실 데이터가<br />자동으로 수신되어 세션별·학생별 출결이 여기에 쌓입니다.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: "grid", gap: 18 }}>
@@ -264,7 +281,7 @@ function TeacherStudents({ roster }) {
   return (
     <div style={{ display: "grid", gap: 18 }}>
       <CiHead title="학생 관리" api="Renewjen + ClassIn"
-        sub="출결·참여도·과제·성적을 종합해 학생별 학습 상태를 한눈에. 집중관리 학생을 빠르게 찾으세요" />
+        sub="월말평가 성적을 기준으로 학생별 학습 상태를 확인하세요 · 출결·참여도는 라이브 수업 시작 후 자동 연동됩니다" />
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {[["all", "전체 " + roster.length], ["high", "집중관리 " + roster.filter(r => r.risk === "high").length], ["watch", "관찰 " + roster.filter(r => r.risk === "watch").length], ["good", "양호 " + roster.filter(r => r.risk === "good").length]].map(([k, label]) => (
@@ -285,9 +302,9 @@ function TeacherStudents({ roster }) {
                 </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 10 }}>
-                <Metric k="출석" v={r.attRate + "%"} bad={r.attRate < 80} />
-                <Metric k="참여" v={r.partic} bad={r.partic < 55} />
-                <Metric k="성적" v={r.examAvg} bad={r.examAvg < 65} />
+                <Metric k="성적" v={r.examAvg == null ? "—" : r.examAvg} bad={r.examAvg != null && r.examAvg < 65} />
+                <Metric k="출석" v={r.attRate == null ? "—" : r.attRate + "%"} bad={r.attRate != null && r.attRate < 80} />
+                <Metric k="참여" v={r.partic == null ? "—" : r.partic} bad={r.partic != null && r.partic < 55} />
               </div>
               {r.flags.length > 0 && (
                 <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 10 }}>
@@ -332,11 +349,21 @@ function StudentDetail({ r, onClose }) {
           <button className="ci-act sm" style={{ marginLeft: "auto" }} onClick={onClose}>닫기</button>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginBottom: 14 }}>
-          <DetailStat k="출석률" v={r.attRate + "%"} sub={`출석 ${r.present} · 지각 ${r.late} · 결석 ${r.absent}`} />
-          <DetailStat k="참여도" v={r.partic} sub="손들기·응답 종합 (ClassIn)" />
-          <DetailStat k="과제 제출률" v={r.hwRate + "%"} sub="우리 홈페이지 과제" />
-          <DetailStat k="정기고사 평균" v={r.examAvg + "점"} sub="우리 홈페이지 시험" />
+          <DetailStat k="월말평가 평균" v={r.examAvg == null ? "—" : r.examAvg + "점"} sub={r.org ? "소속 " + r.org : "성적표 기준"} />
+          <DetailStat k="회차 수" v={(((r.trend && r.trend.length) || 0)) + "회"} sub="응시한 월말평가" />
+          <DetailStat k="출석률" v={r.attRate == null ? "—" : r.attRate + "%"} sub="라이브 수업 후 연동" />
+          <DetailStat k="참여도" v={r.partic == null ? "—" : r.partic} sub="라이브 수업 후 연동" />
         </div>
+        {r.trend && r.trend.length > 0 && (
+          <div style={{ background: "var(--ci-bg-2)", borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>
+            <div style={{ fontSize: 11, color: "var(--ci-muted)", fontWeight: 700, marginBottom: 6 }}>회차별 평균</div>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              {r.trend.map((p, i) => (
+                <span key={i} style={{ fontSize: 13 }}><b style={{ fontWeight: 800 }}>{p.avg}</b> <span style={{ color: "var(--ci-muted)", fontSize: 11 }}>{p.label}</span></span>
+              ))}
+            </div>
+          </div>
+        )}
         {r.flags.length > 0 && (
           <div style={{ background: "rgba(200,40,40,0.06)", borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
             <div style={{ fontSize: 12, fontWeight: 800, color: "var(--ci-bad)", marginBottom: 6 }}>주의 사항</div>

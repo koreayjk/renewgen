@@ -45,6 +45,10 @@ function Router() {
     if (seg[1]) return <InstructorDetailPage instructorId={seg[1]} />;
     return <InstructorsPage />;
   }
+  // v2 (BBB) 실시간 수업 — 플래그가 켜진 v2 에서만 /live·/bbb 를 BBB 페이지로
+  if (window.RJ_LIVE_ENGINE === "bbb" && (seg[0] === "live" || seg[0] === "bbb")) {
+    return <BBBLivePage />;
+  }
   if (seg[0] === "live") {
     return <LivePage courseId={seg[1]} />;
   }

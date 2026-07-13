@@ -415,48 +415,48 @@ function RoleManager({ me }) {
         </table>
       </div>
 
-      {/* 실제 가입 회원 — Supabase profiles */}
+      {/* 최신 가입 회원 — 최근 가입한 회원을 한눈에 */}
       <div style={{ marginTop: 22 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-          <h4 style={{ margin: 0, fontWeight: 900, fontSize: 15 }}>가입 회원 <span style={{ color: "var(--ci-muted)", fontWeight: 600, fontSize: 13 }}>· {members ? members.length + "명" : "…"}</span></h4>
+          <h4 style={{ margin: 0, fontWeight: 900, fontSize: 15 }}>최신 가입 회원 <span style={{ color: "var(--ci-muted)", fontWeight: 600, fontSize: 13 }}>· 총 {members ? members.length + "명" : "…"}</span></h4>
           <button className="ci-act sm" onClick={loadMembers}><Icon name="refresh" size={11} /> 새로고침</button>
         </div>
         {!window.SUPABASE_ENABLED
-          ? <div style={{ color: "var(--ci-muted)", fontSize: 13, padding: "8px 0" }}>미리보기(데모) 모드에서는 실제 가입자가 표시되지 않습니다. 실제 사이트에서 로그인하면 가입 회원이 모두 나타납니다.</div>
+          ? <div style={{ color: "var(--ci-muted)", fontSize: 13, padding: "8px 0" }}>미리보기(데모) 모드에서는 실제 가입자가 표시되지 않습니다. 실제 사이트에서 로그인하면 가입 회원이 나타납니다.</div>
           : loadingM
             ? <div style={{ color: "var(--ci-muted)", fontSize: 13, padding: "8px 0" }}>불러오는 중…</div>
             : (!members || members.length === 0)
-              ? <div style={{ color: "var(--ci-muted)", fontSize: 13, padding: "8px 0" }}>가입한 회원이 없습니다. (또는 관리자 권한이 없어 목록을 볼 수 없습니다 — <span className="ci-mono">db/supabase-extra.sql</span> 실행 여부 확인)</div>
+              ? <div style={{ color: "var(--ci-muted)", fontSize: 13, padding: "8px 0" }}>아직 가입한 회원이 없습니다. 홈페이지에서 회원가입하면 여기에 표시됩니다.</div>
               : (
                 <div className="ci-card" style={{ overflow: "hidden" }}>
                   <div style={{ overflowX: "auto" }}>
                     <table className="ci-table">
-                      <thead><tr><th>이름</th><th>이메일</th><th>구분</th><th style={{ textAlign: "right" }}>권한 설정</th></tr></thead>
+                      <thead><tr><th>이름</th><th>이메일</th><th>구분</th><th style={{ textAlign: "right" }}>가입일</th></tr></thead>
                       <tbody>
-                        {members.map((m) => {
-                          const fixed = window.RJ_ADMIN_EMAILS && window.RJ_ADMIN_EMAILS.includes((m.email || "").toLowerCase());
-                          const curRole = fixed ? "admin" : (m.role || "student");
-                          return (
-                            <tr key={m.id}>
-                              <td><strong style={{ fontWeight: 700 }}>{m.name || "—"}</strong>{m.grade ? <span style={{ color: "var(--ci-muted)", marginLeft: 6, fontSize: 12 }}>{m.grade}</span> : null}</td>
-                              <td className="ci-mono" style={{ fontSize: 12.5 }}>{m.email}{me && me.email && me.email.toLowerCase() === (m.email || "").toLowerCase() && <span className="ci-badge neutral" style={{ marginLeft: 6 }}>나</span>}</td>
-                              <td><span className={"ci-badge " + (curRole === "admin" ? "bad" : curRole === "teacher" ? "navy" : "neutral")}>{roleKo(curRole)}</span></td>
-                              <td style={{ textAlign: "right" }}>
-                                {fixed
-                                  ? <span style={{ fontSize: 12, color: "var(--ci-muted)" }}>고정 관리자</span>
-                                  : <select value={curRole} onChange={(e) => setMemberRole(m, e.target.value)}
-                                      style={{ height: 32, borderRadius: 7, border: "1px solid var(--ci-line)", padding: "0 8px", fontSize: 13, fontWeight: 700 }}>
-                                      <option value="student">학생</option>
-                                      <option value="teacher">강사</option>
-                                      <option value="admin">관리자</option>
-                                    </select>}
-                              </td>
-                            </tr>
-                          );
-                        })}
+                        {[...members]
+                          .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")))
+                          .slice(0, 8)
+                          .map((m) => {
+                            const fixed = window.RJ_ADMIN_EMAILS && window.RJ_ADMIN_EMAILS.includes((m.email || "").toLowerCase());
+                            const curRole = fixed ? "admin" : (m.role || "student");
+                            const joined = m.created_at ? String(m.created_at).slice(0, 10).replace(/-/g, ".") : "—";
+                            return (
+                              <tr key={m.id}>
+                                <td><span className="ci-nameav"><span className="av">{(m.name || "?").slice(-2)}</span><strong style={{ fontWeight: 700 }}>{m.name || "—"}</strong>{m.grade ? <span style={{ color: "var(--ci-muted)", marginLeft: 6, fontSize: 12 }}>{m.grade}</span> : null}</span></td>
+                                <td className="ci-mono" style={{ fontSize: 12.5, color: "var(--ci-muted)" }}>{m.email}{me && me.email && me.email.toLowerCase() === (m.email || "").toLowerCase() && <span className="ci-badge neutral" style={{ marginLeft: 6 }}>나</span>}</td>
+                                <td><span className={"ci-badge " + (curRole === "admin" ? "bad" : curRole === "teacher" ? "navy" : "neutral")}>{roleKo(curRole)}</span></td>
+                                <td style={{ textAlign: "right", fontFamily: "var(--font-en)", fontSize: 12.5, color: "var(--ci-muted)" }}>{joined}</td>
+                              </tr>
+                            );
+                          })}
                       </tbody>
                     </table>
                   </div>
+                  {members.length > 8 && (
+                    <div style={{ padding: "10px 16px", borderTop: "1px solid var(--ci-line)", fontSize: 12.5, color: "var(--ci-muted)", textAlign: "center" }}>
+                      최근 8명 표시 · 전체 {members.length}명은 아래 <b style={{ color: "var(--ci-ink)" }}>학생 관리</b>에서 확인 (권한 변경은 위 “권한 부여” 사용)
+                    </div>
+                  )}
                 </div>
               )}
       </div>

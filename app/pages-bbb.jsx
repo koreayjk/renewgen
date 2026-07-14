@@ -55,19 +55,25 @@ function BBBLivePage() {
     );
   }
 
+  // BBB 는 새 탭으로 연다(임베드 iframe 은 서드파티 쿠키 차단으로 세션 401 발생).
+  //   자체 BBB 서버를 SameSite=None·X-Frame 허용으로 세팅하면 iframe 임베드도 가능.
+  const openRoom = (url) => {
+    const w = window.open(url, "_blank", "noopener");
+    if (!w) { setErr("팝업이 차단되었습니다. 브라우저에서 팝업을 허용한 뒤 다시 시도하세요."); }
+  };
   const create = async () => {
     const name = window.prompt("강의실 이름을 입력하세요", (user.name || "") + " 실시간 수업");
     if (!name) return;
     setBusy(true); setErr("");
     const r = await bbbCall("?action=create&name=" + encodeURIComponent(name));
     setBusy(false);
-    if (r.ok) { setJoinUrl(r.joinUrl); } else setErr(r.msg || "개설 실패");
+    if (r.ok) { openRoom(r.joinUrl); load(); } else setErr(r.msg || "개설 실패");
   };
   const join = async (id) => {
     setBusy(true); setErr("");
     const r = await bbbCall("?action=join&id=" + encodeURIComponent(id));
     setBusy(false);
-    if (r.ok) setJoinUrl(r.joinUrl); else setErr(r.msg || "입장 실패");
+    if (r.ok) openRoom(r.joinUrl); else setErr(r.msg || "입장 실패");
   };
   const end = async (id) => {
     if (!window.confirm("이 강의실을 종료할까요?")) return;

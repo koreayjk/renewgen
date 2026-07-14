@@ -528,6 +528,9 @@ function stuScoreTrend(name) {
     return pts.length ? pts : null;
   } catch (e) { return null; }
 }
+// 반(class) 관리 등 다른 화면에서 학생 명부·성적 추이를 재사용
+window.stuList = stuList;
+window.stuScoreTrend = stuScoreTrend;
 
 function StuStatusBadge({ s }) {
   if (s === "active") return <span className="ci-badge ok"><Icon name="check" size={11} /> 활성</span>;

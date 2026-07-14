@@ -52,7 +52,7 @@ function TeacherPage() {
             <div>
               <div style={{ fontSize: 12.5, fontWeight: 800, color: "var(--ci-yellow)", letterSpacing: "0.04em" }}>선생님 대시보드 · ClassIn 연동</div>
               <h1 style={{ margin: "3px 0 0", fontWeight: 900, fontSize: 26, letterSpacing: "-0.03em" }}>{(user && user.name) || "선생님"}님, 오늘도 함께해요</h1>
-              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.66)", marginTop: 3 }}>{(window.TEACHER_CLASSES || []).map((c) => c.name).join(" · ")}</div>
+              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.66)", marginTop: 3 }}>{((window.loadClasses ? window.loadClasses() : window.TEACHER_CLASSES) || []).map((c) => c.name).join(" · ") || "반을 만들어 학생을 초대하세요"}</div>
             </div>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
@@ -187,22 +187,40 @@ function TodoRow({ icon, label, n, unit, onClick }) {
   );
 }
 
-// ── 출결 관리 (ClassIn Attendance) ──────────────────────────────────
+// ── 출결 관리 (반별 실제 체크 데이터) ───────────────────────────────
 function TeacherAttendance({ roster }) {
-  const sessions = window.ATT_SESSIONS || [];
-  const { showToast } = useApp();
-  const lowAtt = roster.filter((r) => r.attRate != null && r.attRate < 80);
+  const { showToast, navigate } = useApp();
+  const classes = (window.loadClasses ? window.loadClasses() : []);
+  // 반별 세션 집계 (반 관리에서 강사가 체크한 실제 데이터)
+  const perClass = classes.map((c) => {
+    const cr = window.classRoster ? window.classRoster(c.id) : [];
+    const sessions = (window.classSessions ? window.classSessions(c.id) : []).map((se) => ({ se, st: window.sessionStats(se, cr) }));
+    return { c, cr, sessions };
+  }).filter((x) => x.sessions.length > 0);
 
-  // 실제 출결 데이터가 없으면(라이브 수업 전) 정직한 빈 상태
-  if (sessions.length === 0 && !roster.some((r) => r.attRate != null)) {
+  const lowAtt = roster.filter((r) => r.attRate != null && r.attRate < 80);
+  const hasAny = perClass.length > 0 || roster.some((r) => r.attRate != null);
+
+  // CSV 내보내기 — 반·회차·집계
+  const exportCsv = () => {
+    const head = ["반", "날짜", "수업", "출석", "지각", "결석", "미체크", "출석률(%)"];
+    const esc = (v) => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
+    const lines = [head.join(",")];
+    perClass.forEach(({ c, sessions }) => sessions.forEach(({ se, st }) => lines.push([c.name, se.date, se.topic || "수업", st.present, st.late, st.absent, st.unmarked, st.rate].map(esc).join(","))));
+    const blob = new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob); const el = document.createElement("a");
+    el.href = url; el.download = "리뉴젠_출결부.csv"; document.body.appendChild(el); el.click(); el.remove(); URL.revokeObjectURL(url);
+  };
+
+  if (!hasAny) {
     return (
       <div style={{ display: "grid", gap: 18 }}>
-        <CiHead title="출결 관리" api="ClassIn · Attendance"
-          sub="라이브 수업의 입퇴실(Enter/Exit) 데이터가 자동으로 수신됩니다" />
+        <CiHead title="출결 관리" api="Renewjen · Attendance"
+          sub="반 관리에서 수업 회차를 추가하고 출결을 체크하면 여기에 집계됩니다" />
         <div className="ci-card ci-card-pad" style={{ textAlign: "center", padding: "56px 24px", color: "var(--ci-muted)" }}>
           <Icon name="calendar" size={28} />
           <div style={{ fontWeight: 800, color: "var(--ci-ink)", marginTop: 12, fontSize: 15 }}>아직 출결 데이터가 없습니다</div>
-          <p style={{ fontSize: 13.5, marginTop: 8, lineHeight: 1.6 }}>실시간(라이브) 수업을 시작하면 ClassIn 입퇴실 데이터가<br />자동으로 수신되어 세션별·학생별 출결이 여기에 쌓입니다.</p>
+          <p style={{ fontSize: 13.5, marginTop: 8, lineHeight: 1.6 }}>「반 관리」에서 반을 만들고 학생을 초대한 뒤<br />수업 회차를 추가해 출결을 체크하세요. (라이브 수업 연동 시 자동 수신도 지원)</p>
         </div>
       </div>
     );
@@ -210,38 +228,43 @@ function TeacherAttendance({ roster }) {
 
   return (
     <div style={{ display: "grid", gap: 18 }}>
-      <CiHead title="출결 관리" api="ClassIn · Attendance"
-        sub="ClassIn 입퇴실(Enter/Exit) 데이터를 자동 동기화합니다 · 세션별·학생별 출결을 확인하세요"
-        action={<button className="ci-act" onClick={() => showToast && showToast("출결부를 CSV로 내보냈습니다 (데모)")}><Icon name="upload" size={13} /> CSV 내보내기</button>} />
+      <CiHead title="출결 관리" api="Renewjen · Attendance"
+        sub="반 관리에서 체크한 출결을 반별·학생별로 집계합니다"
+        action={<button className="ci-act" onClick={exportCsv}><Icon name="download" size={13} /> CSV 내보내기</button>} />
 
-      {/* 세션별 출석 */}
-      <div className="ci-card" style={{ overflow: "hidden" }}>
-        <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--ci-line)", fontWeight: 900, fontSize: 15 }}>최근 수업 출석</div>
-        <div style={{ overflowX: "auto" }}>
-          <table className="ci-table">
-            <thead><tr><th>날짜</th><th>수업</th><th style={{ textAlign: "center" }}>출석</th><th style={{ textAlign: "center" }}>지각</th><th style={{ textAlign: "center" }}>결석</th><th style={{ minWidth: 140 }}>출석률</th></tr></thead>
-            <tbody>
-              {sessions.map((s) => (
-                <tr key={s.id}>
-                  <td className="ci-mono" style={{ fontSize: 12.5, color: "var(--ci-muted)" }}>{s.date}</td>
-                  <td><strong style={{ fontWeight: 700 }}>{s.topic}</strong></td>
-                  <td style={{ textAlign: "center", fontWeight: 800, color: "var(--ci-ok)" }}>{s.present}</td>
-                  <td style={{ textAlign: "center", fontWeight: 800, color: "var(--ci-amber, #c98a00)" }}>{s.late}</td>
-                  <td style={{ textAlign: "center", fontWeight: 800, color: "var(--ci-bad)" }}>{s.absent}</td>
-                  <td>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ flex: 1, height: 8, background: "var(--ci-bg-2)", borderRadius: 4, overflow: "hidden", minWidth: 70 }}>
-                        <i style={{ display: "block", height: "100%", width: s.rate + "%", background: "var(--ci-navy)" }} />
-                      </span>
-                      <span className="ci-mono" style={{ fontSize: 12, color: "var(--ci-muted)" }}>{s.rate}%</span>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* 반별 세션 출석 */}
+      {perClass.map(({ c, sessions }) => (
+        <div key={c.id} className="ci-card" style={{ overflow: "hidden" }}>
+          <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--ci-line)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontWeight: 900, fontSize: 15 }}>{c.name} <span style={{ color: "var(--ci-muted)", fontWeight: 600, fontSize: 13 }}>· {sessions.length}회차</span></span>
+            <button className="ci-act sm" onClick={() => navigate("/teacher")} title="반 관리에서 체크">반 관리에서 체크 →</button>
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table className="ci-table">
+              <thead><tr><th>날짜</th><th>수업</th><th style={{ textAlign: "center" }}>출석</th><th style={{ textAlign: "center" }}>지각</th><th style={{ textAlign: "center" }}>결석</th><th style={{ minWidth: 140 }}>출석률</th></tr></thead>
+              <tbody>
+                {sessions.map(({ se, st }) => (
+                  <tr key={se.id}>
+                    <td className="ci-mono" style={{ fontSize: 12.5, color: "var(--ci-muted)" }}>{se.date}</td>
+                    <td><strong style={{ fontWeight: 700 }}>{se.topic || "수업"}</strong></td>
+                    <td style={{ textAlign: "center", fontWeight: 800, color: "var(--ci-ok)" }}>{st.present}</td>
+                    <td style={{ textAlign: "center", fontWeight: 800, color: "var(--ci-amber, #c98a00)" }}>{st.late}</td>
+                    <td style={{ textAlign: "center", fontWeight: 800, color: "var(--ci-bad)" }}>{st.absent}</td>
+                    <td>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ flex: 1, height: 8, background: "var(--ci-bg-2)", borderRadius: 4, overflow: "hidden", minWidth: 70 }}>
+                          <i style={{ display: "block", height: "100%", width: st.rate + "%", background: "var(--ci-navy)" }} />
+                        </span>
+                        <span className="ci-mono" style={{ fontSize: 12, color: "var(--ci-muted)" }}>{st.rate}%</span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      ))}
 
       {/* 학생별 누적 출결 */}
       <div className="ci-card" style={{ overflow: "hidden" }}>
@@ -253,7 +276,7 @@ function TeacherAttendance({ roster }) {
           <table className="ci-table">
             <thead><tr><th>학생</th><th style={{ textAlign: "center" }}>출석</th><th style={{ textAlign: "center" }}>지각</th><th style={{ textAlign: "center" }}>결석</th><th style={{ minWidth: 120 }}>출석률</th><th style={{ textAlign: "center" }}>알림</th></tr></thead>
             <tbody>
-              {roster.slice().sort((a, b) => a.attRate - b.attRate).map((r) => (
+              {roster.filter((r) => r.attRate != null).sort((a, b) => a.attRate - b.attRate).map((r) => (
                 <tr key={r.id} style={{ background: r.attRate < 80 ? "rgba(200,40,40,0.04)" : "transparent" }}>
                   <td><div style={{ display: "flex", alignItems: "center", gap: 9 }}><span className="avatar avatar-sm" style={{ background: "var(--ci-bg-2)", color: "var(--ci-navy)", fontWeight: 800 }}>{r.initials}</span><strong style={{ fontWeight: 700 }}>{r.name}</strong></div></td>
                   <td style={{ textAlign: "center", fontWeight: 700 }}>{r.present}</td>

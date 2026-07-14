@@ -37,7 +37,7 @@ function mapSbUser(u) {
 //  · 그 외 등업은 admin 콘솔에서 부여 → localStorage(rj-roles)에 이메일별 저장.
 //    (실서버에서는 Supabase profiles.role 로 옮기고 RLS 로 보호하면 됩니다)
 // ──────────────────────────────────────────────────────────────────
-const RJ_ADMIN_EMAILS = ["koreayjk@gmail.com"]; // 고정 관리자
+const RJ_ADMIN_EMAILS = ["koreayjk@gmail.com", "twinkle347@naver.com"]; // 고정(총) 관리자
 const RJ_ROLE_RANK = { student: 0, teacher: 1, admin: 2 };
 
 function _emailOf(u) { return (typeof u === "string" ? u : (u && u.email) || "").trim().toLowerCase(); }
